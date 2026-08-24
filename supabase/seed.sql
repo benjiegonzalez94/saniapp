@@ -21,6 +21,9 @@ declare
   v_pac1    uuid := gen_random_uuid();
   v_pac2    uuid := gen_random_uuid();
   v_enc     uuid := gen_random_uuid();
+  v_sede    uuid;
+  -- Medianoche local de pasado mañana, en hora de Manta.
+  v_manana  timestamp := date_trunc('day', (now() at time zone 'America/Guayaquil')) + interval '2 days';
 begin
   -- ---------------------------------------------------------------------------
   -- Cuentas
@@ -142,6 +145,52 @@ begin
   values
     (v_tenant, v_pac1, v_enc, now() - interval '3 months',
      158.0, 72.4, 36.6, 78, 16, 138, 86, 97, 126.0, v_medico);
+
+  -- ---------------------------------------------------------------------------
+  -- Agenda: horario de consulta y algunas citas
+  -- ---------------------------------------------------------------------------
+  insert into public.locations (tenant_id, name, address_line, city, phone)
+  values (v_tenant, 'Consultorio 3', 'Av. 4 de Noviembre y calle 13', 'Manta',
+          '+593052620000')
+  returning id into v_sede;
+
+  -- Lunes a viernes, 08:00–12:00, turnos de 30 minutos.
+  insert into public.provider_schedules
+    (tenant_id, provider_id, location_id, weekday, starts_at, ends_at, slot_minutes, valid_from)
+  select v_tenant, v_medico, v_sede, d.wd, '08:00', '12:00', 30, current_date - 30
+  from (values (1), (2), (3), (4), (5)) as d(wd);
+
+  -- Una cita pasada ya atendida y dos futuras, para que la agenda no abra vacía.
+  -- Las futuras disparan el trigger de planificación de recordatorios (0016).
+  --
+  -- OJO con la zona horaria: `date_trunc('day', now())` trunca en la zona de
+  -- SESIÓN, que en el contenedor es UTC. Sin anclar a la zona de la institución,
+  -- una cita "a las 9" acaba a las 04:00 de Manta. Se calcula la medianoche
+  -- local, se suman las horas y se convierte de vuelta a timestamptz.
+  insert into public.appointments
+    (tenant_id, patient_id, provider_id, location_id, starts_at, ends_at,
+     kind, status, source, reason, created_by)
+  select
+    v_tenant, c.paciente, v_medico, v_sede,
+    (v_manana + c.hora) at time zone 'America/Guayaquil',
+    (v_manana + c.hora + interval '30 minutes') at time zone 'America/Guayaquil',
+    c.tipo, c.estado, c.origen, c.motivo, v_medico
+  from (values
+    (v_pac1, interval '9 hours',  'control'::app.encounter_kind,
+     'confirmada'::app.appointment_status, 'telefono'::app.appointment_source,
+     'Control trimestral de diabetes'),
+    (v_pac2, interval '10 hours', 'consulta',
+     'solicitada', 'whatsapp', 'Dolor lumbar de una semana')
+  ) as c(paciente, hora, tipo, estado, origen, motivo);
+
+  -- La cita ya atendida que corresponde a la consulta de hace tres meses.
+  insert into public.appointments
+    (tenant_id, patient_id, provider_id, location_id, starts_at, ends_at,
+     kind, status, source, reason, encounter_id, created_by)
+  values
+    (v_tenant, v_pac1, v_medico, v_sede,
+     now() - interval '3 months', now() - interval '3 months' + interval '30 minutes',
+     'control', 'atendida', 'presencial', 'Control de hipertensión', v_enc, v_medico);
 
   -- NO se siembra ninguna nota clínica, y es una decisión, no un olvido.
   --

@@ -32,6 +32,34 @@ function isPublic(pathname: string): boolean {
   );
 }
 
+/**
+ * Orígenes a los que el navegador puede abrir conexiones.
+ *
+ * Se DERIVAN de NEXT_PUBLIC_SUPABASE_URL en lugar de codificar
+ * `https://*.supabase.co`. En desarrollo, Supabase corre en
+ * http://127.0.0.1:54321, que no es `'self'` (la app está en :3000) ni casa con
+ * ese comodín: la CSP bloqueaba en silencio TODAS las llamadas del navegador
+ * —búsqueda de CIE-10, vademécum, cruce de alergias, subida de estudios y
+ * huecos de agenda— sin que ninguna prueba lo notara, porque las pruebas hablan
+ * con Postgres directamente y nunca ejercen el camino navegador→Supabase.
+ *
+ * Se calcula una vez al cargar el módulo: la variable es de compilación y no
+ * cambia entre peticiones.
+ */
+const ORIGENES_SUPABASE = (() => {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!url) return "https://*.supabase.co wss://*.supabase.co";
+
+  try {
+    const { origin, host, protocol } = new URL(url);
+    // Realtime viaja por WebSocket sobre el mismo host.
+    const ws = protocol === 'https:' ? `wss://${host}` : `ws://${host}`;
+    return `${origin} ${ws}`;
+  } catch {
+    return "https://*.supabase.co wss://*.supabase.co";
+  }
+})();
+
 function securityHeaders(response: NextResponse, nonce: string, isPrivate: boolean): NextResponse {
   const h = response.headers;
 
@@ -46,8 +74,9 @@ function securityHeaders(response: NextResponse, nonce: string, isPrivate: boole
     `style-src 'self' 'unsafe-inline'`,
     `img-src 'self' data: blob: https:`,
     `font-src 'self' data:`,
-    // Supabase: API REST, tiempo real (wss) y almacenamiento.
-    `connect-src 'self' https://*.supabase.co wss://*.supabase.co`,
+    // Supabase: API REST, tiempo real y almacenamiento. El origen se deriva de
+    // la configuración para que funcione igual en local y en producción.
+    `connect-src 'self' ${ORIGENES_SUPABASE}`,
     `media-src 'self' blob:`,
     `object-src 'none'`,
     `base-uri 'self'`,

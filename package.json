@@ -24,7 +24,9 @@
     "scan": "tsx scripts/scan-documents.mts",
     "scan:watch": "tsx scripts/scan-documents.mts --watch",
     "av:start": "docker compose -f docker-compose.clamav.yml up -d",
-    "av:stop": "docker compose -f docker-compose.clamav.yml down"
+    "av:stop": "docker compose -f docker-compose.clamav.yml down",
+    "reminders": "tsx scripts/send-reminders.mts",
+    "reminders:watch": "tsx scripts/send-reminders.mts --watch"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",

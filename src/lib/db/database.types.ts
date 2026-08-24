@@ -5349,6 +5349,13 @@ export type Database = {
         }
         Returns: string
       }
+      despachar_recordatorios: {
+        Args: { p_limite?: number }
+        Returns: {
+          outbox_status: string
+          reminder_id: string
+        }[]
+      }
       estado_cola_antivirus: {
         Args: { p_tenant_id: string }
         Returns: {

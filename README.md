@@ -11,19 +11,24 @@ impuesto por la base de datos y no por el código de la aplicación.
 
 ## Estado
 
-**Fase 1 completa y verificada. Fase 2 en curso.**
+**Fases 1 y 2 completas. Fase 3 (agenda) funcional.**
 
-Las 16 migraciones aplican sin error sobre PostgreSQL 17 y **90 pruebas** corren
+Las 17 migraciones aplican sin error sobre PostgreSQL 17 y **104 pruebas** corren
 contra una base real. El aislamiento no se supone: se comprueba suplantando
 usuarios con sus JWT. Un médico de la clínica A no obtiene los pacientes de la B
 ni conociendo su identificador, recepción no puede abrir una historia clínica,
 una nota firmada no se deja modificar, la bitácora detecta su propia
 manipulación y la agenda rechaza dos citas solapadas.
 
-Ya funciona el circuito completo del consultorio: **buscar o registrar un
-paciente → abrir su expediente → escribir la consulta → codificar el
-diagnóstico → firmarla → emitir la receta → imprimirla → adjuntar los
-estudios**. La agenda y WhatsApp siguen pendientes.
+Ya funciona el circuito completo del consultorio: **agendar sobre huecos reales
+→ marcar la llegada → buscar o registrar al paciente → abrir su expediente →
+escribir la consulta → codificar el diagnóstico → firmarla → emitir la receta →
+imprimirla → adjuntar los estudios**. WhatsApp y la facturación siguen
+pendientes.
+
+> ¿Vas a trabajar en este repositorio, seas persona o agente? Empieza por
+> [`docs/ONBOARDING-AGENTES.md`](docs/ONBOARDING-AGENTES.md): está escrito a
+> partir de los errores que ya se cometieron aquí.
 
 ---
 
@@ -68,7 +73,7 @@ abrirlo dice *«Virtualization support not detected»*, casi siempre falta WSL
 virtualización del BIOS.
 
 ```bash
-npm run db:start     # levanta PostgreSQL 17 y aplica las 16 migraciones
+npm run db:start     # levanta PostgreSQL 17 y aplica las 17 migraciones
 npm run dev
 ```
 
@@ -131,6 +136,7 @@ npm run icons        # regenera favicon e iconos de app desde la geometría de l
 npm run graph        # reconstruye el grafo de conocimiento del repositorio
 npm run av:start     # levanta ClamAV para el análisis de estudios
 npm run scan:watch   # worker que analiza la cola de estudios subidos
+npm run reminders:watch  # worker que despacha y envía recordatorios de cita
 ```
 
 `check:sql` usa el parser real de PostgreSQL (libpg_query) en dos pasadas: el
@@ -158,13 +164,15 @@ supabase/migrations/     Fuente de verdad del esquema. Numeradas, en orden.
   0013_icd10             Catálogo CIE-10 curado con sinónimos de uso corriente
   0014_medications       Vademécum y cruce de alergias por familia farmacológica
   0015_document_scanning Estado del antivirus y cola de análisis de estudios
+  0016_appointment_reminders  Plan y despacho de recordatorios de cita
   9999_verify_security   Aserciones que abortan el despliegue si algo quedó abierto
 
 src/
   proxy.ts               Cabeceras de seguridad, CSP con nonce, guardia de sesión
   app/
     i/[slug]/            Todo lo que ocurre dentro de una institución
-      pacientes/         Padrón, alta, expediente, consulta y notas
+      pacientes/         Padrón, alta, expediente, consulta, notas y recetas
+      agenda/            Día, agendar, horarios y bloqueos
     panel/               Selector de institución
   lib/
     security/crypto.ts   AES-256-GCM ligado al contexto + índice ciego HMAC
@@ -176,6 +184,7 @@ src/
     db/clinical.ts       Historia clínica: notas cifradas, vitales, diagnósticos
     db/prescriptions.ts  Recetas y cruce de alergias antes de prescribir
     db/documents.ts      Estudios: subida firmada, descarga sólo si está limpio
+    db/scheduling.ts     Agenda: citas, huecos, horarios y bloqueos
     security/antivirus   Cliente INSTREAM de ClamAV, autoalojado
     db/database.types.ts Tipos generados del esquema real (npm run db:types)
     supabase/            Clientes de navegador, servidor y administración
@@ -183,6 +192,7 @@ src/
 
 docs/SECURITY.md         Modelo de seguridad y el porqué de cada decisión
 docs/ARCHITECTURE.md     Modelo de datos y flujos principales
+docs/ONBOARDING-AGENTES.md  Guía de incorporación para agentes y personas nuevas
 ```
 
 ---
@@ -215,8 +225,10 @@ Todo el detalle está en [docs/SECURITY.md](docs/SECURITY.md). Lo esencial:
       catálogo CIE-10 con sinónimos, consulta SOAP cifrada con firma, enmienda
       de notas firmadas, recetas con cruce de alergias por familia
       farmacológica, y subida de estudios con antivirus autoalojado.
-- [ ] **Fase 3 — Agenda.** Calendario del médico, reserva desde la web y desde
-      el portal del paciente, recordatorios.
+- [~] **Fase 3 — Agenda.** Vista del día con acciones rápidas, agendamiento
+      sobre huecos calculados por la base, gestión de horarios y bloqueos, y
+      planificación automática de recordatorios. **Falta**: vista semanal,
+      reprogramar desde la interfaz y portal del paciente.
 - [ ] **Fase 4 — WhatsApp.** Webhook con verificación de firma, bot de
       agendamiento con botones, plantillas aprobadas por Meta.
 - [ ] **Fase 5 — Facturación.** Pasarela de pago, portal de suscripción,
