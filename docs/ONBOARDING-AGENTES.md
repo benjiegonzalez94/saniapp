@@ -176,7 +176,7 @@ npm run scan:watch      # worker de antivirus
 npm run reminders:watch # worker de recordatorios
 ```
 
-Cuentas de desarrollo (contraseña `saniti123`), institución
+Cuentas de desarrollo (contraseña `saniti-demo-2026`), institución
 `/i/hospital-mendieta`:
 
 | Cuenta | Rol | Qué demuestra |
@@ -267,7 +267,7 @@ docs/                  SECURITY.md, ARCHITECTURE.md y este archivo
 |---|---|
 | 1 · Cimientos de seguridad y esquema | Completa y verificada |
 | 2 · Núcleo clínico | Completa |
-| 3 · Agenda | Funcional; falta vista semanal y portal del paciente |
+| 3 · Agenda | Completa; falta reprogramar arrastrando y portal del paciente |
 | 4 · WhatsApp | Pendiente (faltan credenciales de Meta) |
 | 5 · Facturación | Sólo esquema |
 
@@ -279,6 +279,7 @@ docs/                  SECURITY.md, ARCHITECTURE.md y este archivo
 - Alertas de break-glass sin revisar.
 - Copias de seguridad verificadas y ensayo de restauración.
 - Portal del paciente.
+- Vista semanal: reprogramar arrastrando una cita a otro día.
 
 ---
 

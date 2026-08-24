@@ -191,3 +191,14 @@ export const APPOINTMENT_STATUS_LABELS: Record<AppointmentStatus, string> = {
   no_asistio: 'No asistió',
   reprogramada: 'Reprogramada',
 };
+
+export const DOCUMENT_KIND_LABELS: Record<DocumentKind, string> = {
+  laboratorio: 'Laboratorio',
+  imagen: 'Imagen',
+  informe: 'Informe',
+  receta: 'Receta',
+  consentimiento: 'Consentimiento',
+  referencia: 'Referencia',
+  certificado: 'Certificado',
+  otro: 'Otro',
+};

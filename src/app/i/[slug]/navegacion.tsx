@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { CalendarDays, FileText, ShieldCheck, Users } from 'lucide-react';
+import { CalendarDays, FileText, ShieldCheck, UsersRound, Users } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import type { Permission } from '@/lib/db/types';
@@ -19,6 +19,7 @@ const SECCIONES = [
   { href: 'pacientes', etiqueta: 'Pacientes', icono: Users, permiso: 'patients.read' },
   { href: 'agenda', etiqueta: 'Agenda', icono: CalendarDays, permiso: 'appointments.read' },
   { href: 'documentos', etiqueta: 'Estudios', icono: FileText, permiso: 'documents.read' },
+  { href: 'equipo', etiqueta: 'Equipo', icono: UsersRound, permiso: 'patients.read' },
   { href: 'auditoria', etiqueta: 'Auditoría', icono: ShieldCheck, permiso: 'audit.read' },
 ] as const satisfies ReadonlyArray<{
   href: string;

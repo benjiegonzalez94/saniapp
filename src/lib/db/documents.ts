@@ -38,6 +38,70 @@ export type DocumentoResumen = {
 };
 
 /**
+ * Un estudio visto desde la institución, no desde el expediente: aquí el
+ * paciente deja de ser el contexto implícito y pasa a ser un dato más de la
+ * fila, porque sin él la lista no se puede leer.
+ */
+export type DocumentoInstitucion = DocumentoResumen & {
+  patient: {
+    id: string;
+    givenName: string;
+    familyName: string;
+    recordNumber: number;
+  };
+};
+
+export type FiltrosDocumentos = {
+  kind?: DocumentKind | null;
+  scanStatus?: EstadoAnalisis | null;
+};
+
+/**
+ * Los dos `select` van repetidos y en una sola línea a propósito: concatenar
+ * con `+` ensancha el literal a `string` y supabase-js pierde la inferencia de
+ * la fila. Cambiar uno obliga a mirar el otro.
+ */
+const CAMPOS_PACIENTE =
+  'id, kind, title, description, mime_type, size_bytes, scan_status, scan_detail, study_date, created_at, uploader:profiles!documents_uploaded_by_fkey(full_name)' as const;
+
+const CAMPOS_INSTITUCION =
+  'id, kind, title, description, mime_type, size_bytes, scan_status, scan_detail, study_date, created_at, uploader:profiles!documents_uploaded_by_fkey(full_name), patient:patients!documents_patient_id_fkey(id, given_name, family_name, record_number)' as const;
+
+/** Forma cruda compartida por los dos listados. */
+type FilaDocumento = {
+  id: string;
+  kind: DocumentKind;
+  title: string;
+  description: string | null;
+  mime_type: string;
+  size_bytes: number;
+  scan_status: EstadoAnalisis;
+  scan_detail: string | null;
+  study_date: string | null;
+  created_at: string;
+  uploader: { full_name: string } | null;
+};
+
+function aResumen(f: FilaDocumento): DocumentoResumen {
+  return {
+    id: f.id,
+    kind: f.kind,
+    title: f.title,
+    description: f.description,
+    mimeType: f.mime_type,
+    // `size_bytes` es `bigint` en Postgres y supabase-js lo entrega como número
+    // sólo mientras quepa; el `Number()` deja explícito que aquí se asume que
+    // cabe, cosa que el tope de 100 MB de la tabla garantiza.
+    sizeBytes: Number(f.size_bytes),
+    scanStatus: f.scan_status,
+    scanDetail: f.scan_detail,
+    studyDate: f.study_date,
+    createdAt: f.created_at,
+    uploadedByName: f.uploader?.full_name ?? 'Desconocido',
+  };
+}
+
+/**
  * Reserva el hueco de un documento y devuelve una URL de subida firmada.
  *
  * Dos pasos y no uno porque el identificador tiene que existir antes de que
@@ -113,9 +177,7 @@ export async function listarDocumentos(
 
   const { data, error } = await supabase
     .from('documents')
-    .select(
-      'id, kind, title, description, mime_type, size_bytes, scan_status, scan_detail, study_date, created_at, uploader:profiles!documents_uploaded_by_fkey(full_name)'
-    )
+    .select(CAMPOS_PACIENTE)
     .eq('tenant_id', tenantId)
     .eq('patient_id', patientId)
     .is('deleted_at', null)
@@ -123,32 +185,62 @@ export async function listarDocumentos(
 
   if (error) throw error;
 
-  type Fila = {
-    id: string;
-    kind: DocumentKind;
-    title: string;
-    description: string | null;
-    mime_type: string;
-    size_bytes: number;
-    scan_status: EstadoAnalisis;
-    scan_detail: string | null;
-    study_date: string | null;
-    created_at: string;
-    uploader: { full_name: string } | null;
-  };
+  return data.map((d) => aResumen(d));
+}
 
-  return (data as unknown as Fila[]).map((d) => ({
-    id: d.id,
-    kind: d.kind,
-    title: d.title,
-    description: d.description,
-    mimeType: d.mime_type,
-    sizeBytes: Number(d.size_bytes),
-    scanStatus: d.scan_status,
-    scanDetail: d.scan_detail,
-    studyDate: d.study_date,
-    createdAt: d.created_at,
-    uploadedByName: d.uploader?.full_name ?? 'Desconocido',
+/**
+ * Estudios de TODA la institución.
+ *
+ * Existe porque quien atiende la cola del antivirus o busca «el eco de ayer»
+ * no sabe todavía de qué paciente es: entrar por el expediente exige conocer la
+ * respuesta antes de preguntar.
+ *
+ * No amplía lo que se ve. `documents_select` sigue exigiendo
+ * `app.can_read_patient()` fila a fila, así que en una institución con modelo
+ * `care_team` esta lista sale recortada a los pacientes del propio equipo, y
+ * eso es lo correcto: la vista de institución es una comodidad de navegación,
+ * no una llave maestra.
+ *
+ * Tampoco se audita, por lo mismo que no se auditan las búsquedas de pacientes:
+ * un evento por listado ahogaría la bitácora justo donde importa. Lo que se
+ * audita es abrir el archivo, y de eso se encarga `urlDescarga`.
+ */
+export async function listarDocumentosInstitucion(
+  tenantId: string,
+  filtros: FiltrosDocumentos = {},
+  limite = 50
+): Promise<DocumentoInstitucion[]> {
+  const supabase = await createClient();
+
+  let consulta = supabase
+    .from('documents')
+    .select(CAMPOS_INSTITUCION)
+    .eq('tenant_id', tenantId)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
+    .limit(limite);
+
+  if (filtros.kind) consulta = consulta.eq('kind', filtros.kind);
+  if (filtros.scanStatus) consulta = consulta.eq('scan_status', filtros.scanStatus);
+
+  const { data, error } = await consulta;
+  if (error) throw error;
+
+  // Sin cruzar por `unknown`: el `select` de arriba sí infiere, y dejar que
+  // TypeScript compruebe la forma real es lo que hace que una columna renombrada
+  // en una migración rompa aquí y no en producción.
+  return data.map((d) => ({
+    ...aResumen(d),
+    patient: {
+      // El `left join` es imposible en la práctica —`patient_id` es NOT NULL y
+      // RLS ya filtró por él— pero supabase-js tipa la relación como anulable y
+      // fingir lo contrario con un `!` escondería una fila rota en vez de
+      // pintarla.
+      id: d.patient?.id ?? '',
+      givenName: d.patient?.given_name ?? '—',
+      familyName: d.patient?.family_name ?? '',
+      recordNumber: d.patient?.record_number ?? 0,
+    },
   }));
 }
 

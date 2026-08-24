@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 
 import { createClient } from '@/lib/supabase/server';
 import { audit } from '@/lib/audit';
+import { sanearTerminoBusqueda } from '@/lib/utils';
 import {
   blindIndex,
   encryptNationalId,
@@ -136,7 +137,16 @@ export async function buscarPacientes(
       const bidx = `\\x${blindIndex(soloDigitos).toString('hex')}`;
       query = query.or(`national_id_bidx.eq.${bidx},phone.ilike.%${soloDigitos}%`);
     } else {
-      const patron = `%${termino}%`;
+      // Sin sanear, buscar «Pérez, Juan» rompe el filtro: PostgREST parte el
+      // argumento de `or=(...)` por comas y paréntesis y devuelve un 400 en vez
+      // de resultados. Le pasa a cualquiera que escriba una coma en el buscador.
+      const limpio = sanearTerminoBusqueda(termino);
+      if (limpio.length === 0) {
+        // Sólo había separadores: no hay nada por lo que filtrar y devolver el
+        // padrón entero sería engañoso.
+        return [];
+      }
+      const patron = `%${limpio}%`;
       query = query.or(`given_name.ilike.${patron},family_name.ilike.${patron}`);
     }
   }

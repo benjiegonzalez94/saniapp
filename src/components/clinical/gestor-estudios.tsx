@@ -1,75 +1,31 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import {
-  Download,
-  FileText,
-  Loader2,
-  ShieldAlert,
-  ShieldCheck,
-  ShieldQuestion,
-  Upload,
-} from 'lucide-react';
+import { Download, FileText, Loader2, Upload } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { ESTADO_ANALISIS, IndicadorAnalisis } from '@/components/clinical/estado-analisis';
 import { createClient } from '@/lib/supabase/client';
-import { cn } from '@/lib/utils';
-import { DOCUMENT_KINDS, type DocumentKind } from '@/lib/db/types';
-import type { DocumentoResumen, EstadoAnalisis } from '@/lib/db/documents';
+import { cn, formatearTamano } from '@/lib/utils';
+import { DOCUMENT_KINDS, DOCUMENT_KIND_LABELS } from '@/lib/db/types';
+import type { DocumentoResumen } from '@/lib/db/documents';
 import {
   confirmarSubida,
   descargarEstudio,
   reservarEstudio,
 } from '@/app/i/[slug]/pacientes/[id]/estudios/actions';
 
-const ETIQUETAS_TIPO: Record<DocumentKind, string> = {
-  laboratorio: 'Laboratorio',
-  imagen: 'Imagen',
-  informe: 'Informe',
-  receta: 'Receta',
-  consentimiento: 'Consentimiento',
-  referencia: 'Referencia',
-  certificado: 'Certificado',
-  otro: 'Otro',
-};
-
-/** El estado del análisis no es decoración: decide si el archivo se puede abrir. */
-const ESTADO: Record<
-  EstadoAnalisis,
-  { icono: typeof ShieldCheck; clase: string; etiqueta: string }
-> = {
-  limpio: {
-    icono: ShieldCheck,
-    clase: 'text-(--color-exito)',
-    etiqueta: 'Analizado',
-  },
-  pendiente: {
-    icono: ShieldQuestion,
-    clase: 'text-(--color-aviso)',
-    etiqueta: 'En análisis',
-  },
-  infectado: {
-    icono: ShieldAlert,
-    clase: 'text-(--color-riesgo)',
-    etiqueta: 'Rechazado',
-  },
-  error: {
-    icono: ShieldAlert,
-    clase: 'text-(--color-tinta-3)',
-    etiqueta: 'Sin analizar',
-  },
-};
-
-function tamano(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} kB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
-
+/**
+ * `studyDate` es un `date` sin hora: `new Date('2026-05-01')` se interpreta como
+ * medianoche UTC y, pintado en la zona de Ecuador (UTC-5), retrocedería un día.
+ * Se formatea en UTC para leer el día tal cual se guardó, igual que en el
+ * listado de estudios de la institución.
+ */
 const FECHA = new Intl.DateTimeFormat('es-EC', {
   day: '2-digit',
   month: 'short',
   year: 'numeric',
+  timeZone: 'UTC',
 });
 
 export function GestorEstudios({
@@ -123,7 +79,7 @@ export function GestorEstudios({
       }
 
       // Paso 2: el archivo va directo al bucket, sin atravesar el servidor.
-      setProgreso(`Subiendo ${tamano(archivo.size)}…`);
+      setProgreso(`Subiendo ${formatearTamano(archivo.size)}…`);
       const supabase = createClient();
       const { error: errSubida } = await supabase.storage
         .from('clinical')
@@ -201,7 +157,7 @@ export function GestorEstudios({
               >
                 {DOCUMENT_KINDS.map((k) => (
                   <option key={k} value={k}>
-                    {ETIQUETAS_TIPO[k]}
+                    {DOCUMENT_KIND_LABELS[k]}
                   </option>
                 ))}
               </select>
@@ -312,18 +268,11 @@ export function GestorEstudios({
       ) : (
         <ul className="divide-y divide-(--color-borde) overflow-hidden rounded-(--radius-lg) border border-(--color-borde) bg-(--color-superficie)">
           {documentos.map((d) => {
-            const est = ESTADO[d.scanStatus];
-            const Icono = est.icono;
+            const est = ESTADO_ANALISIS[d.scanStatus];
 
             return (
               <li key={d.id} className="flex items-center gap-3 px-4 py-3">
-                {/* El estado se anuncia con texto para lectores de pantalla: un
-                    icono coloreado no dice nada a quien no lo ve, y aquí lo que
-                    comunica es si el archivo se puede abrir. */}
-                <span className="shrink-0" title={est.etiqueta}>
-                  <Icono className={cn('size-4', est.clase)} aria-hidden="true" />
-                  <span className="sr-only">{est.etiqueta}.</span>
-                </span>
+                <IndicadorAnalisis estado={d.scanStatus} />
 
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-(--color-tinta)">
@@ -331,9 +280,9 @@ export function GestorEstudios({
                   </p>
                   <p className="mt-0.5 truncate text-xs text-(--color-tinta-3)">
                     {[
-                      ETIQUETAS_TIPO[d.kind],
+                      DOCUMENT_KIND_LABELS[d.kind],
                       d.studyDate ? FECHA.format(new Date(d.studyDate)) : null,
-                      tamano(d.sizeBytes),
+                      formatearTamano(d.sizeBytes),
                       d.uploadedByName,
                     ]
                       .filter(Boolean)

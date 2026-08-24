@@ -10,6 +10,16 @@ import {
   listarProveedores,
 } from '@/lib/db/scheduling';
 import { cn } from '@/lib/utils';
+import type { AppointmentSource } from '@/lib/db/types';
+import {
+  desplazarDias,
+  esFechaISO,
+  hoyEnZona,
+  inicioDelDia,
+  lunesDeLaSemana,
+} from '@/lib/fechas';
+import { ESTADOS_INACTIVOS, ESTILO_ESTADO, ETIQUETA_ESTADO } from './estados';
+import { SelectorVista } from './selector-vista';
 import { AccionesCita } from './acciones';
 
 export const metadata: Metadata = { title: 'Agenda' };
@@ -26,47 +36,12 @@ export const dynamic = 'force-dynamic';
  * guarda timestamptz en UTC.
  */
 
-/** Devuelve el rango [inicio, fin) del día indicado, en la zona de la institución. */
-function rangoDelDia(fechaISO: string, zona: string): { desde: Date; hasta: Date } {
-  // Se construye el instante correspondiente a la medianoche local usando el
-  // desfase real de esa fecha, para que un cambio de horario de verano no
-  // desplace la agenda una hora.
-  const medianocheUTC = new Date(`${fechaISO}T00:00:00Z`);
-  const enZona = new Date(medianocheUTC.toLocaleString('en-US', { timeZone: zona }));
-  const desfase = medianocheUTC.getTime() - enZona.getTime();
-
-  const desde = new Date(medianocheUTC.getTime() + desfase);
-  const hasta = new Date(desde.getTime() + 24 * 60 * 60 * 1000);
-  return { desde, hasta };
-}
-
-function desplazarDias(fechaISO: string, dias: number): string {
-  const d = new Date(`${fechaISO}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + dias);
-  return d.toISOString().slice(0, 10);
-}
-
-const ESTILO_ESTADO: Record<string, string> = {
-  solicitada: 'bg-(--color-aviso-suave) text-(--color-tinta)',
-  confirmada: 'bg-(--color-acento-suave) text-(--color-acento-fuerte)',
-  en_sala: 'bg-(--color-exito-suave) text-(--color-exito)',
-  atendida: 'bg-(--color-superficie-2) text-(--color-tinta-3)',
-  cancelada: 'bg-(--color-superficie-2) text-(--color-tinta-3) line-through',
-  no_asistio: 'bg-(--color-riesgo-suave) text-(--color-riesgo)',
-  reprogramada: 'bg-(--color-superficie-2) text-(--color-tinta-3)',
-};
-
-const ETIQUETA_ESTADO: Record<string, string> = {
-  solicitada: 'Por confirmar',
-  confirmada: 'Confirmada',
-  en_sala: 'En sala',
-  atendida: 'Atendida',
-  cancelada: 'Cancelada',
-  no_asistio: 'No asistió',
-  reprogramada: 'Reprogramada',
-};
-
-const ETIQUETA_ORIGEN: Record<string, string> = {
+/**
+ * Tipado contra el enum y no como `Record<string, string>`: así, el día que una
+ * migración añada un origen —el portal del paciente ya está previsto— esto deja
+ * de compilar en vez de pintar un hueco en blanco donde debería ir su nombre.
+ */
+const ETIQUETA_ORIGEN: Record<AppointmentSource, string> = {
   web: 'Web',
   whatsapp: 'WhatsApp',
   telefono: 'Teléfono',
@@ -88,13 +63,18 @@ export default async function PaginaAgenda({
   const zona = tenant.timezone;
 
   // "Hoy" es hoy en la zona de la institución, no en la del servidor.
-  const hoy = new Date().toLocaleDateString('en-CA', { timeZone: zona });
-  const dia = fecha && /^\d{4}-\d{2}-\d{2}$/.test(fecha) ? fecha : hoy;
+  const hoy = hoyEnZona(zona);
+  // `esFechaISO` descarta además el 30 de febrero, que pasa el patrón de forma
+  // pero da un `Invalid Date` y revienta más abajo con un 500 que no explica nada.
+  const dia = esFechaISO(fecha) ? fecha : hoy;
 
   const proveedores = await listarProveedores(tenant.tenantId);
   const medicoActivo = medico ?? (proveedores.length === 1 ? proveedores[0].id : null);
 
-  const { desde, hasta } = rangoDelDia(dia, zona);
+  // El fin del día es el comienzo del siguiente, no `desde + 24 h`: en un
+  // cambio de horario el día no dura veinticuatro horas.
+  const desde = inicioDelDia(dia, zona);
+  const hasta = inicioDelDia(desplazarDias(dia, 1), zona);
 
   const [citas, bloqueos, huecos] = await Promise.all([
     listarCitas(tenant.tenantId, desde, hasta, medicoActivo),
@@ -116,7 +96,7 @@ export default async function PaginaAgenda({
     timeZone: zona,
   });
 
-  const activas = citas.filter((c) => !['cancelada', 'reprogramada'].includes(c.status));
+  const activas = citas.filter((c) => !ESTADOS_INACTIVOS.includes(c.status));
   const puedeAgendar = can(tenant, 'appointments.write');
 
   return (
@@ -131,6 +111,11 @@ export default async function PaginaAgenda({
         </div>
 
         <div className="flex items-center gap-2">
+          <SelectorVista
+            vista="dia"
+            hrefDia={`/i/${slug}/agenda?fecha=${dia}${medico ? `&medico=${medico}` : ''}`}
+            hrefSemana={`/i/${slug}/agenda/semana?desde=${lunesDeLaSemana(dia)}${medico ? `&medico=${medico}` : ''}`}
+          />
           {can(tenant, 'schedule.manage') && (
             <Link
               href={`/i/${slug}/agenda/horarios`}

@@ -13,7 +13,7 @@ impuesto por la base de datos y no por el código de la aplicación.
 
 **Fases 1 y 2 completas. Fase 3 (agenda) funcional.**
 
-Las 17 migraciones aplican sin error sobre PostgreSQL 17 y **104 pruebas** corren
+Las 17 migraciones aplican sin error sobre PostgreSQL 17 y **107 pruebas** corren
 contra una base real. El aislamiento no se supone: se comprueba suplantando
 usuarios con sus JWT. Un médico de la clínica A no obtiene los pacientes de la B
 ni conociendo su identificador, recepción no puede abrir una historia clínica,
@@ -26,9 +26,10 @@ escribir la consulta → codificar el diagnóstico → firmarla → emitir la re
 imprimirla → adjuntar los estudios**. WhatsApp y la facturación siguen
 pendientes.
 
-> ¿Vas a trabajar en este repositorio, seas persona o agente? Empieza por
-> [`docs/ONBOARDING-AGENTES.md`](docs/ONBOARDING-AGENTES.md): está escrito a
-> partir de los errores que ya se cometieron aquí.
+> ¿Vas a trabajar en este repositorio? Empieza por
+> [`docs/ONBOARDING-AGENTES.md`](docs/ONBOARDING-AGENTES.md) —escrito a partir de
+> los errores que ya se cometieron aquí— y por [`CONTRIBUTING.md`](CONTRIBUTING.md)
+> para la convivencia entre varias personas.
 
 ---
 
@@ -87,7 +88,7 @@ npm run db:stop      # detiene los contenedores
 ```
 
 `db:reset` carga `supabase/seed.sql`, que crea la institución piloto y tres
-cuentas para recorrer la aplicación. Contraseña de todas: `saniti123`.
+cuentas para recorrer la aplicación. Contraseña de todas: `saniti-demo-2026`.
 
 | Cuenta | Rol | Qué demuestra |
 |---|---|---|
@@ -225,10 +226,9 @@ Todo el detalle está en [docs/SECURITY.md](docs/SECURITY.md). Lo esencial:
       catálogo CIE-10 con sinónimos, consulta SOAP cifrada con firma, enmienda
       de notas firmadas, recetas con cruce de alergias por familia
       farmacológica, y subida de estudios con antivirus autoalojado.
-- [~] **Fase 3 — Agenda.** Vista del día con acciones rápidas, agendamiento
-      sobre huecos calculados por la base, gestión de horarios y bloqueos, y
-      planificación automática de recordatorios. **Falta**: vista semanal,
-      reprogramar desde la interfaz y portal del paciente.
+- [x] **Fase 3 — Agenda.** Vista de día y de semana, agendamiento sobre huecos
+      calculados por la base, horarios y bloqueos, y planificación automática de
+      recordatorios. **Falta**: reprogramar arrastrando y portal del paciente.
 - [ ] **Fase 4 — WhatsApp.** Webhook con verificación de firma, bot de
       agendamiento con botones, plantillas aprobadas por Meta.
 - [ ] **Fase 5 — Facturación.** Pasarela de pago, portal de suscripción,

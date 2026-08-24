@@ -17,6 +17,10 @@ const PUBLIC_PATHS = [
   '/ingresar',
   '/registro',
   '/recuperar',
+  // El enlace del correo llega sin sesión previa: es Supabase quien la
+  // establece al abrirlo. Un guardia aquí redirigiría al login antes de que
+  // eso ocurra y la recuperación quedaría inservible.
+  '/recuperar/nueva',
   '/legal/privacidad',
   '/legal/terminos',
 ];

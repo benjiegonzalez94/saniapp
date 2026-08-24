@@ -17,6 +17,7 @@ import {
   encryptNationalId,
   resetCryptoCache,
 } from '@/lib/security/crypto';
+import { sanearTerminoBusqueda } from '@/lib/utils';
 
 /**
  * Invariantes del padrón de pacientes, comprobados contra la base real.
@@ -193,6 +194,28 @@ describe('documento de identidad cifrado', () => {
     // uno: son responsables de datos distintos, no un expediente compartido.
     const enB = await alta(clinicaB.id, 'Irma', 'Nueve', '1104567890');
     expect(enB.id).toBeTruthy();
+  });
+});
+
+describe('saneado del término de búsqueda', () => {
+  it('quita los separadores que rompen el filtro de PostgREST', () => {
+    // PostgREST parte el argumento de `or=(...)` por comas y paréntesis. Sin
+    // limpiar, buscar «Pérez, Juan» devolvía un 400 en vez de resultados: le
+    // pasaba a cualquiera que escribiera una coma en el buscador.
+    expect(sanearTerminoBusqueda('Pérez, Juan')).toBe('Pérez Juan');
+    expect(sanearTerminoBusqueda('Zambrano (madre)')).toBe('Zambrano madre');
+  });
+
+  it('neutraliza los comodines', () => {
+    // Un `%` suelto convertiría el patrón ilike en «devuélvelo todo».
+    expect(sanearTerminoBusqueda('%')).toBe('');
+    expect(sanearTerminoBusqueda('a%b*c')).toBe('a b c');
+  });
+
+  it('conserva los acentos y la ñ', () => {
+    // Se buscan nombres ecuatorianos: normalizar acentos aquí impediría
+    // encontrar a quien está registrado con ellos.
+    expect(sanearTerminoBusqueda('  Muñoz  Cedeño ')).toBe('Muñoz Cedeño');
   });
 });
 

@@ -8,7 +8,7 @@
 -- Crea la institución piloto, tres cuentas con roles distintos y dos pacientes
 -- de prueba, para poder recorrer la aplicación sin registrarse a mano.
 --
--- Todas las contraseñas son "saniti123" — evidentemente inservibles fuera de
+-- Todas las contraseñas son "saniti-demo-2026" — evidentemente inservibles fuera de
 -- una máquina de desarrollo.
 -- =============================================================================
 
@@ -41,7 +41,7 @@ begin
   select
     u.id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
     u.email,
-    extensions.crypt('saniti123', extensions.gen_salt('bf')), now(),
+    extensions.crypt('saniti-demo-2026', extensions.gen_salt('bf')), now(),
     '{"provider":"email","providers":["email"]}'::jsonb,
     jsonb_build_object('full_name', u.nombre), now(), now(),
     '', '', '', '', '', '', '', ''
@@ -203,7 +203,7 @@ begin
   -- funciona. La primera nota se crea desde la interfaz, en "Nueva consulta".
 
   raise notice '--------------------------------------------------------------';
-  raise notice 'Datos de desarrollo listos. Contraseña de todas: saniti123';
+  raise notice 'Datos de desarrollo listos. Contraseña de todas: saniti-demo-2026';
   raise notice '  Médico:    elvis.gonzalez@saniti.test';
   raise notice '  Recepción: recepcion@saniti.test';
   raise notice '  Admin:     admin@saniti.test';
