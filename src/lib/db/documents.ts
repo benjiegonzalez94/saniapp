@@ -205,20 +205,35 @@ export async function listarDocumentos(
  * un evento por listado ahogaría la bitácora justo donde importa. Lo que se
  * audita es abrir el archivo, y de eso se encarga `urlDescarga`.
  */
+export type PaginaDocumentos = {
+  filas: DocumentoInstitucion[];
+  /** Si hay al menos una fila más allá de esta página. */
+  hayMas: boolean;
+};
+
 export async function listarDocumentosInstitucion(
   tenantId: string,
   filtros: FiltrosDocumentos = {},
-  limite = 50
-): Promise<DocumentoInstitucion[]> {
+  limite = 50,
+  desplazamiento = 0
+): Promise<PaginaDocumentos> {
   const supabase = await createClient();
 
+  // Se pide una fila de más en vez de un `count: 'exact'`. Saber si existe la
+  // página siguiente es todo lo que necesita la interfaz, y contar todas las
+  // filas obliga a Postgres a recorrer el índice entero en cada carga; con un
+  // solo hospital da igual, con doscientos no.
   let consulta = supabase
     .from('documents')
     .select(CAMPOS_INSTITUCION)
     .eq('tenant_id', tenantId)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
-    .limit(limite);
+    // El orden por fecha empata cuando se suben varios estudios en el mismo
+    // lote; sin un desempate estable la misma fila puede salir en dos páginas
+    // y otra en ninguna.
+    .order('id', { ascending: false })
+    .range(desplazamiento, desplazamiento + limite);
 
   if (filtros.kind) consulta = consulta.eq('kind', filtros.kind);
   if (filtros.scanStatus) consulta = consulta.eq('scan_status', filtros.scanStatus);
@@ -226,10 +241,12 @@ export async function listarDocumentosInstitucion(
   const { data, error } = await consulta;
   if (error) throw error;
 
+  const hayMas = data.length > limite;
+
   // Sin cruzar por `unknown`: el `select` de arriba sí infiere, y dejar que
   // TypeScript compruebe la forma real es lo que hace que una columna renombrada
   // en una migración rompa aquí y no en producción.
-  return data.map((d) => ({
+  const filas = data.slice(0, limite).map((d) => ({
     ...aResumen(d),
     patient: {
       // El `left join` es imposible en la práctica —`patient_id` es NOT NULL y
@@ -242,6 +259,8 @@ export async function listarDocumentosInstitucion(
       recordNumber: d.patient?.record_number ?? 0,
     },
   }));
+
+  return { filas, hayMas };
 }
 
 export class DocumentoNoServibleError extends Error {

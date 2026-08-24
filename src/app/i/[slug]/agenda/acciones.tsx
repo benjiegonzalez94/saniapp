@@ -2,11 +2,12 @@
 
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
-import { Check, LogIn, MoreHorizontal, Stethoscope, UserX, X } from 'lucide-react';
+import { CalendarClock, Check, LogIn, MoreHorizontal, Stethoscope, UserX, X } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import type { AppointmentStatus } from '@/lib/db/types';
 import { marcarEstado } from './actions';
+import { ReprogramarCita } from './reprogramar';
 
 /**
  * Acciones rápidas sobre una cita.
@@ -48,19 +49,29 @@ const TRANSICIONES: Record<string, Transicion[]> = {
 
 export function AccionesCita({
   slug,
+  tenantId,
   citaId,
   estado,
   pacienteId,
+  proveedorId,
+  zona,
+  fecha,
   puedeAtender,
 }: {
   slug: string;
+  tenantId: string;
   citaId: string;
   estado: AppointmentStatus;
   pacienteId: string;
+  proveedorId: string;
+  zona: string;
+  /** Día de la cita, para abrir el reprogramador en la fecha actual. */
+  fecha: string;
   puedeAtender: boolean;
 }) {
   const [pendiente, iniciar] = useTransition();
   const [abierto, setAbierto] = useState(false);
+  const [moviendo, setMoviendo] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const disponibles = TRANSICIONES[estado] ?? [];
@@ -88,6 +99,23 @@ export function AccionesCita({
 
   // Con el paciente ya en sala, lo siguiente es abrir la consulta.
   const mostrarAtender = puedeAtender && (estado === 'en_sala' || estado === 'confirmada');
+
+  // Reprogramar sólo tiene sentido antes de que el paciente llegue.
+  const puedeMover = estado === 'solicitada' || estado === 'confirmada';
+
+  if (moviendo) {
+    return (
+      <ReprogramarCita
+        slug={slug}
+        tenantId={tenantId}
+        citaId={citaId}
+        proveedorId={proveedorId}
+        zona={zona}
+        fechaActual={fecha}
+        onListo={() => setMoviendo(false)}
+      />
+    );
+  }
 
   return (
     <div className="relative flex items-center gap-1.5">
@@ -144,6 +172,21 @@ export function AccionesCita({
                 className="fixed inset-0 z-10 cursor-default"
               />
               <ul className="absolute top-9 right-0 z-20 min-w-44 overflow-hidden rounded-(--radius-md) border border-(--color-borde-fuerte) bg-(--color-superficie) py-1 shadow-(--shadow-flotante)">
+                {puedeMover && (
+                  <li>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAbierto(false);
+                        setMoviendo(true);
+                      }}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-(--color-tinta-2) transition-colors hover:bg-(--color-superficie-2)"
+                    >
+                      <CalendarClock className="size-3.5" aria-hidden="true" />
+                      Reprogramar
+                    </button>
+                  </li>
+                )}
                 {secundarias.map((t) => (
                   <li key={t.estado}>
                     <button

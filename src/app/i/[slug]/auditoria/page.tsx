@@ -4,6 +4,8 @@ import { ShieldAlert, ShieldCheck } from 'lucide-react';
 
 import { requirePermissionBySlug } from '@/lib/auth/context';
 import { listarEventos, resumenBreakGlass } from '@/lib/db/audit-log';
+import { VerificacionIntegridad } from './integridad';
+import { CerrarRevision } from './revision';
 import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
 import { AUDIT_ACTIONS, ROLE_LABELS, type AuditAction } from '@/lib/db/types';
@@ -176,6 +178,8 @@ export default async function PaginaAuditoria({
         </p>
       </header>
 
+      <VerificacionIntegridad slug={slug} />
+
       {/* Lo primero que un auditor debe ver: los accesos de emergencia que
           nadie ha mirado todavía. Un break-glass sin revisar deja de ser una
           excepción justificada y pasa a ser una puerta trasera. */}
@@ -239,6 +243,10 @@ export default async function PaginaAuditoria({
                     Ver todo lo ocurrido con este paciente
                   </Link>
                 </p>
+
+                <div className="mt-2">
+                  <CerrarRevision slug={slug} grantId={c.id} />
+                </div>
               </li>
             ))}
           </ul>

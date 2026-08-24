@@ -50,7 +50,19 @@ export function PiePublico() {
   return (
     <footer className="border-t border-(--color-borde) bg-(--color-superficie)">
       <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-10 text-sm text-(--color-tinta-3) sm:flex-row sm:items-center sm:justify-between">
-        <p>© {new Date().getFullYear()} SaniTi</p>
+        {/*
+          Sin año, a propósito.
+
+          Estas páginas se prerenderizan estáticas, así que `new Date()` se
+          evalúa al COMPILAR: el aviso legal seguiría diciendo 2026 en enero de
+          2027 hasta que alguien redesplegara. Un año equivocado en un pie de
+          aviso legal es peor que ninguno, y forzar el renderizado dinámico de
+          tres páginas estáticas para pintar cuatro cifras no compensa.
+
+          La fecha que sí importa —la vigencia de cada texto legal— la lleva el
+          propio documento y la fija una persona.
+        */}
+        <p>© SaniTi</p>
         <div className="flex gap-6">
           <Link href="/legal/privacidad" className="hover:text-(--color-tinta-2)">
             Política de privacidad

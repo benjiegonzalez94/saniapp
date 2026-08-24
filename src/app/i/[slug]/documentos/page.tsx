@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { FileText, ShieldAlert } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileText, ShieldAlert } from 'lucide-react';
 
 import { requirePermissionBySlug } from '@/lib/auth/context';
 import {
@@ -51,10 +51,10 @@ export default async function PaginaEstudios({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ tipo?: string; estado?: string }>;
+  searchParams: Promise<{ tipo?: string; estado?: string; pagina?: string }>;
 }) {
   const { slug } = await params;
-  const { tipo: tipoCrudo, estado: estadoCrudo } = await searchParams;
+  const { tipo: tipoCrudo, estado: estadoCrudo, pagina: paginaCruda } = await searchParams;
 
   const tenant = await requirePermissionBySlug(slug, 'documents.read');
 
@@ -68,9 +68,22 @@ export default async function PaginaEstudios({
     ? (estadoCrudo as EstadoAnalisis)
     : null;
 
-  const [cola, estudios] = await Promise.all([
+  // `Number('3x')` da NaN y `Number('')` da 0; ambos caen a la primera página.
+  // El tope evita que `?pagina=99999999` pida a Postgres un desplazamiento
+  // absurdo que tarda en devolver cero filas.
+  const solicitada = Math.floor(Number(paginaCruda));
+  const paginaActual =
+    Number.isFinite(solicitada) && solicitada > 1 ? Math.min(solicitada, 200) : 1;
+  const desplazamiento = (paginaActual - 1) * LIMITE;
+
+  const [cola, { filas: estudios, hayMas }] = await Promise.all([
     estadoColaAntivirus(tenant.tenantId),
-    listarDocumentosInstitucion(tenant.tenantId, { kind: tipo, scanStatus: estado }, LIMITE),
+    listarDocumentosInstitucion(
+      tenant.tenantId,
+      { kind: tipo, scanStatus: estado },
+      LIMITE,
+      desplazamiento
+    ),
   ]);
 
   const fechaSubida = new Intl.DateTimeFormat('es-EC', {
@@ -82,7 +95,13 @@ export default async function PaginaEstudios({
     timeZone: tenant.timezone,
   });
 
-  /** Enlaces que conservan el otro filtro en vez de reiniciar la vista. */
+  /**
+   * Enlaces que conservan el otro filtro en vez de reiniciar la vista.
+   *
+   * Cambiar de filtro sí vuelve a la página 1 a propósito: quedarse en la 4 de
+   * un listado que ahora tiene dos páginas deja al usuario mirando una pantalla
+   * vacía sin entender por qué.
+   */
   function enlaceFiltro(
     nuevoTipo: DocumentKind | null,
     nuevoEstado: EstadoAnalisis | null
@@ -90,6 +109,16 @@ export default async function PaginaEstudios({
     const busqueda = new URLSearchParams();
     if (nuevoTipo) busqueda.set('tipo', nuevoTipo);
     if (nuevoEstado) busqueda.set('estado', nuevoEstado);
+    const cadena = busqueda.toString();
+    return cadena ? `/i/${slug}/documentos?${cadena}` : `/i/${slug}/documentos`;
+  }
+
+  /** El mismo filtro, otra página. */
+  function enlacePagina(n: number): string {
+    const busqueda = new URLSearchParams();
+    if (tipo) busqueda.set('tipo', tipo);
+    if (estado) busqueda.set('estado', estado);
+    if (n > 1) busqueda.set('pagina', String(n));
     const cadena = busqueda.toString();
     return cadena ? `/i/${slug}/documentos?${cadena}` : `/i/${slug}/documentos`;
   }
@@ -227,13 +256,21 @@ export default async function PaginaEstudios({
             aria-hidden="true"
             strokeWidth={1.5}
           />
+          {/* Una URL con `?pagina=` más allá del final no es «no hay estudios»:
+              decírselo así al usuario le hace pensar que perdió los archivos. */}
           <p className="mt-4 font-medium text-(--color-tinta)">
-            {hayFiltro ? 'Ningún estudio coincide' : 'Todavía no hay estudios'}
+            {paginaActual > 1
+              ? 'No hay más estudios'
+              : hayFiltro
+                ? 'Ningún estudio coincide'
+                : 'Todavía no hay estudios'}
           </p>
           <p className="mx-auto mt-1.5 max-w-sm text-sm text-(--color-tinta-2)">
-            {hayFiltro
-              ? 'Pruebe con otro tipo o quite el filtro de análisis.'
-              : 'Los estudios se suben desde el expediente del paciente.'}
+            {paginaActual > 1
+              ? 'Ha llegado al final del listado.'
+              : hayFiltro
+                ? 'Pruebe con otro tipo o quite el filtro de análisis.'
+                : 'Los estudios se suben desde el expediente del paciente.'}
           </p>
         </div>
       ) : (
@@ -292,12 +329,49 @@ export default async function PaginaEstudios({
         </ul>
       )}
 
-      {estudios.length > 0 && (
-        <p className="text-xs text-(--color-tinta-3)">
-          {estudios.length === LIMITE
-            ? `Mostrando los ${LIMITE} más recientes. Filtre para ver otros.`
-            : `${estudios.length} estudio${estudios.length === 1 ? '' : 's'}.`}
-        </p>
+      {/* Paginación real. Antes esto decía «filtre para ver otros» cuando la
+          lista llegaba a 50: además de no distinguir «justo 50» de «hay más»,
+          dejaba los estudios del 51 en adelante sin ninguna forma de abrirlos. */}
+      {(estudios.length > 0 || paginaActual > 1) && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="cifras text-xs text-(--color-tinta-3)">
+            {estudios.length > 0
+              ? `Estudios ${desplazamiento + 1}–${desplazamiento + estudios.length}`
+              : 'Sin estudios en esta página'}
+          </p>
+
+          {(paginaActual > 1 || hayMas) && (
+            <nav aria-label="Paginación" className="flex items-center gap-2">
+              {paginaActual > 1 ? (
+                <Link
+                  href={enlacePagina(paginaActual - 1)}
+                  rel="prev"
+                  className="inline-flex h-8 items-center gap-1 rounded-(--radius-sm) border border-(--color-borde-fuerte) bg-(--color-superficie) px-2.5 text-xs text-(--color-tinta) transition-colors hover:bg-(--color-superficie-2)"
+                >
+                  <ChevronLeft className="size-3.5" aria-hidden="true" />
+                  Anteriores
+                </Link>
+              ) : (
+                <span />
+              )}
+
+              <span className="cifras text-xs text-(--color-tinta-3)">
+                Página {paginaActual}
+              </span>
+
+              {hayMas && (
+                <Link
+                  href={enlacePagina(paginaActual + 1)}
+                  rel="next"
+                  className="inline-flex h-8 items-center gap-1 rounded-(--radius-sm) border border-(--color-borde-fuerte) bg-(--color-superficie) px-2.5 text-xs text-(--color-tinta) transition-colors hover:bg-(--color-superficie-2)"
+                >
+                  Siguientes
+                  <ChevronRight className="size-3.5" aria-hidden="true" />
+                </Link>
+              )}
+            </nav>
+          )}
+        </div>
       )}
     </div>
   );

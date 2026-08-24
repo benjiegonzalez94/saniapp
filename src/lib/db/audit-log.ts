@@ -22,22 +22,52 @@ import type { AuditAction, MemberRole } from '@/lib/db/types';
 /* Verificación de la cadena de hash                                           */
 /* -------------------------------------------------------------------------- */
 
+export type EstadoCadena = {
+  eventosVerificados: number;
+  /** null = íntegra. Con valor, el primer evento donde la cadena no cuadra. */
+  rotoEnId: number | null;
+  rotoEn: string | null;
+};
+
 /**
- * NO existe aquí una `verificarCadena()`, y es deliberado.
+ * Recorre la cadena de hash y devuelve dónde deja de cuadrar.
  *
- * `app.verify_audit_chain(uuid)` está implementada (migración 0003) y concedida
- * a `authenticated`, pero vive en el esquema `app`, y PostgREST sólo publica
- * `public`. `app.audit()` tiene su envoltorio —`public.record_audit()`—; ésta
- * no tiene ninguno, así que `supabase.rpc('verify_audit_chain', …)` fallaría en
- * ejecución con PGRST202 sin que TypeScript avisara: los tipos generados no la
- * incluyen porque la base tampoco la expone.
+ * `app.verify_audit_chain()` existe desde la migración 0003 pero vive en el
+ * esquema `app`, que PostgREST no publica: era inalcanzable desde la interfaz.
+ * La migración 0017 añadió `public.verificar_cadena_auditoria()`, que comprueba
+ * el permiso `audit.read` antes de recorrer nada.
  *
- * Hoy la comprobación la hace `npm run check:drift`, que se conecta a Postgres
- * directamente (`scripts/check-schema-drift.mjs`). Para enseñar el resultado en
- * la interfaz hace falta una migración que añada el envoltorio en `public`
- * restringido a `audit.read`; inventar aquí la llamada sólo cambiaría un fallo
- * visible por uno silencioso, que en una bitácora es el peor modo de fallo.
+ * Es una operación de coste lineal sobre la bitácora entera de la institución.
+ * No se llama al pintar la lista de eventos: se pide a propósito, con un botón,
+ * porque en una institución con años de historia tardaría lo suyo.
  */
+export async function verificarCadena(tenantId: string): Promise<EstadoCadena> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .rpc('verificar_cadena_auditoria', { p_tenant_id: tenantId })
+    .single();
+
+  if (error) throw error;
+
+  return {
+    eventosVerificados: Number(data.eventos_verificados ?? 0),
+    rotoEnId: data.roto_en_id === null ? null : Number(data.roto_en_id),
+    rotoEn: data.roto_en,
+  };
+}
+
+/** Cierra la revisión de un acceso de emergencia. Queda en la propia bitácora. */
+export async function revisarBreakGlass(grantId: string, nota?: string): Promise<void> {
+  const supabase = await createClient();
+
+  const { error } = await supabase.rpc('revisar_break_glass', {
+    p_grant_id: grantId,
+    p_nota: nota?.trim() || undefined,
+  });
+
+  if (error) throw error;
+}
 
 /* -------------------------------------------------------------------------- */
 /* Eventos                                                                     */

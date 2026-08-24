@@ -269,9 +269,13 @@ export default async function PaginaAgenda({
                 {puedeAgendar && (
                   <AccionesCita
                     slug={slug}
+                    tenantId={tenant.tenantId}
                     citaId={c.id}
                     estado={c.status}
                     pacienteId={c.patient.id}
+                    proveedorId={c.provider.id}
+                    zona={zona}
+                    fecha={dia}
                     puedeAtender={can(tenant, 'clinical.write')}
                   />
                 )}

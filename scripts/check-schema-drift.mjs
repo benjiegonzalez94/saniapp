@@ -46,16 +46,27 @@ function readTsConst(source, name) {
 
 const typesSource = readFileSync(join(process.cwd(), 'src', 'lib', 'db', 'types.ts'), 'utf8');
 
-// enum de Postgres → constante de TypeScript
+// enum de Postgres → constante de TypeScript.
+//
+// Sólo se comparan los que aparecen aquí. La lista se quedó corta una vez —ocho
+// de quince constantes vigiladas— y seis enums podían derivar en silencio, así
+// que abajo hay una comprobación que detecta constantes que parecen espejo de un
+// enum y no están registradas.
 const ENUM_MAP = {
   member_role: 'MEMBER_ROLES',
   tenant_kind: 'TENANT_KINDS',
   appointment_status: 'APPOINTMENT_STATUSES',
   appointment_source: 'APPOINTMENT_SOURCES',
   encounter_kind: 'ENCOUNTER_KINDS',
+  encounter_status: 'ENCOUNTER_STATUSES',
   consent_purpose: 'CONSENT_PURPOSES',
   audit_action: 'AUDIT_ACTIONS',
   document_kind: 'DOCUMENT_KINDS',
+  sex_at_birth: 'SEX_AT_BIRTH',
+  id_document: 'ID_DOCUMENTS',
+  patient_status: 'PATIENT_STATUSES',
+  allergy_severity: 'ALLERGY_SEVERITIES',
+  diagnosis_kind: 'DIAGNOSIS_KINDS',
 };
 
 const problems = [];
@@ -93,6 +104,35 @@ try {
     }
     if (sobranEnTs.length) {
       problems.push(`${tsName}: ya no existen en la base → ${sobranEnTs.join(', ')}`);
+    }
+  }
+
+  // --- 1b. Constantes que parecen espejo de un enum y nadie vigila ---
+  //
+  // Registrar un enum en ENUM_MAP es un paso que se olvida, y olvidarlo no
+  // produce ningún síntoma: la comparación simplemente no se hace. Esto detecta
+  // toda constante exportada en MAYÚSCULAS cuyo nombre corresponda a un enum de
+  // `app` y que no esté en el mapa.
+  const yaVigiladas = new Set(Object.values(ENUM_MAP));
+  const constantesTs = [...typesSource.matchAll(/export const ([A-Z][A-Z0-9_]*) = \[/g)].map(
+    (m) => m[1]
+  );
+
+  for (const nombre of constantesTs) {
+    if (yaVigiladas.has(nombre) || nombre === 'PERMISSIONS') continue;
+
+    // ALLERGY_SEVERITIES → allergy_severit(y|ies)… la pluralización castellana
+    // del inglés no es mecánica, así que se compara por prefijo del singular.
+    const base = nombre.toLowerCase().replace(/(ies|es|s)$/, '');
+    const candidato = enums.find(
+      (e) => e.name === base || e.name.startsWith(base) || base.startsWith(e.name)
+    );
+
+    if (candidato) {
+      problems.push(
+        `${nombre} refleja el enum app.${candidato.name} pero NO está en ENUM_MAP: ` +
+          'su deriva no se comprueba. Añádalo a scripts/check-schema-drift.mjs.'
+      );
     }
   }
 

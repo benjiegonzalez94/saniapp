@@ -5416,6 +5416,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      revisar_break_glass: {
+        Args: { p_grant_id: string; p_nota?: string }
+        Returns: undefined
+      }
       sign_clinical_record: {
         Args: { p_id: string; p_table: string }
         Returns: undefined
@@ -5430,6 +5434,14 @@ export type Database = {
           match_kind: string
           medication_code: string
           medication_name: string
+        }[]
+      }
+      verificar_cadena_auditoria: {
+        Args: { p_tenant_id: string }
+        Returns: {
+          eventos_verificados: number
+          roto_en: string
+          roto_en_id: number
         }[]
       }
     }
