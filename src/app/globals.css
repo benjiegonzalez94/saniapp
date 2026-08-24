@@ -1,0 +1,137 @@
+@import 'tailwindcss';
+
+/*
+  Sistema de diseño de SaniTi.
+
+  Criterio: sobriedad. Esto se usa ocho horas seguidas, muchas veces con un
+  paciente delante esperando. Nada de degradados, sombras marcadas ni color
+  decorativo: el color se reserva para lo que significa algo —un valor fuera de
+  rango, una alergia grave, una cita sin confirmar—. Si todo destaca, nada
+  destaca, y en un expediente clínico eso tiene consecuencias.
+*/
+
+@theme {
+  /* Neutros: base de casi toda la interfaz. */
+  --color-lienzo: oklch(99% 0.002 250);
+  --color-superficie: oklch(100% 0 0);
+  --color-superficie-2: oklch(97.2% 0.003 250);
+  --color-borde: oklch(91% 0.004 250);
+  --color-borde-fuerte: oklch(84% 0.006 250);
+  --color-tinta: oklch(21% 0.012 250);
+  --color-tinta-2: oklch(45% 0.012 250);
+  --color-tinta-3: oklch(60% 0.011 250);
+
+  /* Acento: un verde azulado clínico, legible y sin estridencia. */
+  --color-acento: oklch(56% 0.098 195);
+  --color-acento-fuerte: oklch(48% 0.104 195);
+  --color-acento-suave: oklch(96% 0.021 195);
+
+  /* Semánticos: sólo para estado real, nunca decorativos. */
+  --color-exito: oklch(56% 0.121 155);
+  --color-exito-suave: oklch(96% 0.032 155);
+  --color-aviso: oklch(70% 0.145 75);
+  --color-aviso-suave: oklch(96.5% 0.045 85);
+  --color-riesgo: oklch(56% 0.19 25);
+  --color-riesgo-suave: oklch(96% 0.028 25);
+
+  --font-sans: 'Inter var', 'Inter', ui-sans-serif, system-ui, -apple-system,
+    'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  /* Para cédulas, dosis y signos vitales: cifras de ancho fijo para que las
+     columnas de números se lean alineadas de un vistazo. */
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Roboto Mono', monospace;
+
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+
+  --shadow-sutil: 0 1px 2px 0 oklch(21% 0.012 250 / 0.05);
+  --shadow-tarjeta: 0 1px 3px 0 oklch(21% 0.012 250 / 0.07),
+    0 1px 2px -1px oklch(21% 0.012 250 / 0.05);
+  --shadow-flotante: 0 10px 24px -6px oklch(21% 0.012 250 / 0.12),
+    0 4px 8px -4px oklch(21% 0.012 250 / 0.06);
+}
+
+@media (prefers-color-scheme: dark) {
+  @theme {
+    --color-lienzo: oklch(17% 0.012 250);
+    --color-superficie: oklch(21% 0.013 250);
+    --color-superficie-2: oklch(25% 0.014 250);
+    --color-borde: oklch(30% 0.014 250);
+    --color-borde-fuerte: oklch(38% 0.015 250);
+    --color-tinta: oklch(96% 0.004 250);
+    --color-tinta-2: oklch(76% 0.009 250);
+    --color-tinta-3: oklch(60% 0.011 250);
+
+    --color-acento: oklch(72% 0.096 195);
+    --color-acento-fuerte: oklch(80% 0.086 195);
+    --color-acento-suave: oklch(28% 0.038 195);
+
+    --color-exito: oklch(72% 0.114 155);
+    --color-exito-suave: oklch(27% 0.043 155);
+    --color-aviso: oklch(80% 0.128 75);
+    --color-aviso-suave: oklch(29% 0.05 75);
+    --color-riesgo: oklch(70% 0.155 25);
+    --color-riesgo-suave: oklch(28% 0.055 25);
+  }
+}
+
+@layer base {
+  * {
+    border-color: var(--color-borde);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-lienzo);
+    color: var(--color-tinta);
+    font-family: var(--font-sans);
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* El foco debe verse SIEMPRE. Buena parte del trabajo clínico se hace con
+     teclado, y en una pantalla táctil de mostrador con guantes también. */
+  :focus-visible {
+    outline: 2px solid var(--color-acento);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  ::selection {
+    background-color: var(--color-acento-suave);
+    color: var(--color-acento-fuerte);
+  }
+
+  /* Cifras tabulares donde importa comparar de un vistazo. */
+  .cifras {
+    font-variant-numeric: tabular-nums;
+    font-family: var(--font-mono);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* En impresión —consentimientos, recetas, epicrisis— sobra todo el marco. */
+@media print {
+  .no-imprimir {
+    display: none !important;
+  }
+  body {
+    background: white;
+    color: black;
+  }
+}

@@ -1,0 +1,37 @@
+# ClamAV para el análisis de los estudios que se suben.
+#
+# Autoalojado y no un servicio en la nube: un estudio de laboratorio lleva el
+# nombre del paciente y su diagnóstico, así que enviarlo a una API externa sería
+# una transferencia de datos de salud a un tercero. Aquí el archivo no sale de
+# la infraestructura.
+#
+#   docker compose -f docker-compose.clamav.yml up -d
+#   npm run scan:watch
+#
+# La primera arrancada descarga la base de firmas (unos 250 MB) y tarda varios
+# minutos. `healthcheck` avisa cuando ya responde.
+
+services:
+  clamav:
+    image: clamav/clamav:1.4
+    container_name: saniti_clamav
+    restart: unless-stopped
+    ports:
+      - '3310:3310'
+    environment:
+      # freshclam actualiza las firmas al arrancar y cada 24 h. Un antivirus con
+      # firmas de hace un año da una falsa sensación de seguridad.
+      CLAMAV_NO_FRESHCLAMD: 'false'
+      FRESHCLAM_CHECKS: '1'
+    volumes:
+      # Persistir las firmas evita volver a descargar 250 MB en cada reinicio.
+      - clamav_signatures:/var/lib/clamav
+    healthcheck:
+      test: ['CMD', 'clamdcheck.sh']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 300s
+
+volumes:
+  clamav_signatures:
