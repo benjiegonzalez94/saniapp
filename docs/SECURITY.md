@@ -178,7 +178,11 @@ select public.break_glass('<patient_id>', 'Paciente inconsciente en emergencia, 
 - Se audita **antes** de conceder nada, para que el rastro exista aunque la
   sesión se corte.
 - Queda pendiente de revisión hasta que un responsable la cierre
-  (`break_glass_grants.reviewed_at`).
+  (`break_glass_grants.reviewed_at`). El cierre se hace desde
+  `/i/{slug}/auditoria` y **exige una nota**: un circuito de revisión que se
+  despacha con un botón «visto» no es un circuito de revisión. La nota, el
+  revisor y la fecha entran en la propia bitácora, y una concesión ya revisada
+  no se puede volver a cerrar.
 
 Es una tabla y no una variable de sesión porque PostgREST usa un pool de
 conexiones: una GUC no local sobreviviría a la petición y quedaría activa para
@@ -358,8 +362,10 @@ Esta fundación no incluye todavía:
 - Rotación efectiva de claves de cifrado. El esquema y el código la soportan
   (`key_version` por fila, `needsRotation()`); falta el job que recifre lo
   antiguo.
-- Alertas sobre concesiones de break-glass sin revisar. La tabla
-  `break_glass_grants` ya registra cuáles siguen pendientes; falta quien avise.
+- **Aviso** sobre concesiones de break-glass sin revisar. Revisarlas ya se puede
+  —y la pantalla de auditoría las lista destacadas—, pero nadie va a buscarlas:
+  falta el correo o la notificación que le diga al responsable que hay una
+  esperando.
 - Copias de seguridad verificadas y ensayo de restauración.
 - Endurecimiento de `auth`: caducidad de sesión, exigir MFA por institución,
   bloqueo temporal de cuenta tras N fallos (hoy sólo hay límite de intentos).
@@ -373,7 +379,9 @@ no la sintaxis. Cubre aislamiento entre clínicas, mínimo necesario por rol,
 break-glass, inmutabilidad de lo firmado, detección de manipulación de la
 bitácora, solapamiento de citas y la puerta del consentimiento.
 
-Ejecútelas con `npm test` y el Postgres local levantado.
+Ejecútelas con `npm test` y el Postgres local levantado. El workflow
+`verificar` las corre en cada push y en cada PR sobre una base recién creada,
+con las mismas migraciones y claves de cifrado generadas por ejecución.
 
 El **antivirus también está implementado y probado de punta a punta**: ClamAV
 autoalojado (`docker-compose.clamav.yml`), worker que consume la cola
@@ -385,3 +393,12 @@ El escáner de desarrollo **nunca da nada por limpio**: devuelve `error` con el
 motivo. Un sustituto que aprobara archivos convertiría el antivirus en teatro y
 se colaría a producción sin que nada fallara. Y en producción, si falta
 `CLAMAV_HOST`, el arranque falla en lugar de degradarse en silencio.
+
+CI levanta ClamAV como servicio y ejecuta el protocolo INSTREAM completo contra
+un clamd con firmas reales. No siempre fue así: las pruebas llevaban un guardia
+que debía omitirlas cuando el contenedor no estuviera, y estaba mal escrito en
+las dos direcciones posibles —ejecutarlas siempre, que es como se descubrió, o
+haberlas omitido siempre en verde, que era el desenlace peligroso—. La prueba de
+que un antivirus inalcanzable devuelve `error` y no `limpio` vive ahora fuera
+del bloque omitible, porque es justo la que tiene que correr donde no hay
+ClamAV. El detalle está en `docs/ONBOARDING-AGENTES.md` §2.11.

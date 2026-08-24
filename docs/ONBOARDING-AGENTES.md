@@ -299,7 +299,7 @@ docs/                  SECURITY.md, ARCHITECTURE.md y este archivo
 |---|---|
 | 1 · Cimientos de seguridad y esquema | Completa y verificada |
 | 2 · Núcleo clínico | Completa |
-| 3 · Agenda | Completa; falta reprogramar arrastrando y portal del paciente |
+| 3 · Agenda | Completa. Día, semana, horarios, bloqueos, agendar y reprogramar |
 | 4 · WhatsApp | Pendiente (faltan credenciales de Meta) |
 | 5 · Facturación | Sólo esquema |
 
@@ -308,11 +308,20 @@ docs/                  SECURITY.md, ARCHITECTURE.md y este archivo
 - SMS y correo sin proveedor: el worker imprime y **no** marca como enviado.
 - WhatsApp sin credenciales de Meta.
 - Rotación efectiva de claves de cifrado (esquema y código listos, falta el job).
-- Alertas de break-glass sin revisar.
 - Copias de seguridad verificadas y ensayo de restauración.
-- Portal del paciente.
-- Vista semanal: reprogramar arrastrando una cita a otro día (el formulario de
-  reprogramación sí existe, desde el menú de cada cita).
+- **Portal del paciente**: es la pieza grande que falta. No es una pantalla más:
+  introduce un tipo de usuario nuevo, con su propia autenticación, su propio
+  conjunto de permisos y un modelo de consentimiento distinto del de la plantilla
+  de una institución. Se aparta a propósito en vez de improvisarla.
+- Vista semanal: reprogramar arrastrando una cita a otro día. El formulario de
+  reprogramación ya existe, desde el menú de cada cita; lo que falta es el gesto.
+- Los textos legales (`/legal/privacidad`, `/legal/terminos`) llevan marcadores
+  `<PorCompletar>` a propósito: razón social, RUC, domicilio y contacto del
+  responsable de datos. **No los rellenes inventando**; los tiene que dar el
+  titular, y en un aviso LOPDP un dato inventado es peor que un hueco visible.
+- Protección de la rama `main`: hay que activarla a mano en la configuración de
+  GitHub. El workflow `verificar` ya corre en cada push y en cada PR, pero nada
+  impide todavía fusionar con el CI en rojo.
 
 ---
 
