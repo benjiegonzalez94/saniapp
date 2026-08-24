@@ -29,6 +29,30 @@ jobs:
     # margen a una descarga de imágenes en frío sin dejar un job colgado una hora.
     timeout-minutes: 25
 
+    # ClamAV como servicio, no como paso.
+    #
+    # Sin él las seis pruebas del protocolo INSTREAM se omiten, y ese es
+    # precisamente el camino que decide si un estudio subido llega o no al
+    # expediente de un paciente. Omitirlo en CI deja la comprobación viviendo
+    # solo en el portátil de quien tenga el contenedor levantado.
+    #
+    # Docker lo arranca antes del primer paso y su descarga corre en paralelo
+    # con `npm ci` y con `supabase start`, así que cuesta bastante menos de lo
+    # que sugiere el tamaño de la imagen. Si aun así no llegara a estar sano,
+    # las pruebas se omiten solas: este servicio puede añadir cobertura, nunca
+    # provocar un fallo por sí mismo.
+    services:
+      clamav:
+        image: clamav/clamav:1.4
+        ports:
+          - 3310:3310
+        options: >-
+          --health-cmd clamdcheck.sh
+          --health-interval 15s
+          --health-timeout 10s
+          --health-retries 20
+          --health-start-period 180s
+
     steps:
       - uses: actions/checkout@v5
 
@@ -142,6 +166,33 @@ jobs:
           echo "::add-mask::$indice"
           echo "SANITI_ENCRYPTION_KEYS={\"1\":\"$clave\"}" >> "$GITHUB_ENV"
           echo "SANITI_BLIND_INDEX_KEY=$indice" >> "$GITHUB_ENV"
+
+      # Deja constancia de si el antivirus entró en la ejecución. Sin esta línea
+      # las seis pruebas omitidas no se distinguen de seis pruebas que pasaron,
+      # y CI seguiría en verde el día que ClamAV dejara de levantarse.
+      - name: Estado de ClamAV
+        run: |
+          # PING del propio protocolo de clamd, con `node -e` y nada más: el
+          # healthcheck de Docker dice que el contenedor está sano, no que el
+          # puerto sea alcanzable desde el runner, que es lo que necesitan las
+          # pruebas. Sin tsx ni imports de TypeScript, para que este diagnóstico
+          # no pueda romperse por un cambio en el código de la aplicación.
+          if node -e '
+            const net = require("net");
+            const NUL = String.fromCharCode(0);
+            const s = net.createConnection(3310, "127.0.0.1");
+            let d = "";
+            s.setTimeout(5000);
+            s.on("connect", () => s.write("zPING" + NUL));
+            s.on("data", (c) => { d += c; s.end(); });
+            s.on("close", () => process.exit(d.split(NUL).join("") === "PONG" ? 0 : 1));
+            s.on("error", () => process.exit(1));
+            s.on("timeout", () => { s.destroy(); process.exit(1); });
+          '; then
+            echo "ClamAV responde: se ejecutarán las pruebas del protocolo INSTREAM."
+          else
+            echo "::warning::ClamAV no responde; las 6 pruebas de INSTREAM se omitirán."
+          fi
 
       - name: Pruebas
         run: npm test

@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { ClamAvEscaner, EscanerDesarrollo, crearEscaner } from './antivirus';
 
@@ -10,6 +10,16 @@ import { ClamAvEscaner, EscanerDesarrollo, crearEscaner } from './antivirus';
  * protocolo INSTREAM completo contra un clamd con firmas reales:
  *
  *   npm run av:start
+ *
+ * El sondeo va aquí arriba, en la carga del módulo, y no en un `beforeAll`.
+ * `skipIf`/`runIf` deciden al RECOLECTAR las pruebas, antes de que se ejecute
+ * ningún hook, así que una bandera que se rellena en `beforeAll` llega siempre
+ * tarde. La versión anterior además pasaba `it.runIf(() => bandera)`: el
+ * argumento es un valor, no un predicado, y una función siempre es cierta, de
+ * modo que las pruebas se ejecutaban SIEMPRE. En el portátil pasaban porque el
+ * contenedor estaba levantado; en CI, donde no lo está, fallaron seis. El error
+ * apuntaba a la dirección peligrosa —correr de más— pero el mismo descuido
+ * escrito al revés habría dejado el antivirus sin probar y en verde.
  */
 
 /**
@@ -59,39 +69,44 @@ describe('selección del escáner', () => {
   });
 });
 
-describe('ClamAV por TCP', () => {
-  const escaner = new ClamAvEscaner({ host: '127.0.0.1', port: 3310, timeoutMs: 30_000 });
-  let disponible = false;
+const escaner = new ClamAvEscaner({ host: '127.0.0.1', port: 3310, timeoutMs: 30_000 });
 
-  beforeAll(async () => {
-    disponible = await escaner.disponible();
-    if (!disponible) {
-      console.log('  (ClamAV no responde en 127.0.0.1:3310 — se omiten estas pruebas)');
-    }
-  });
+// Timeout corto sólo para el sondeo: si no hay nada escuchando la conexión se
+// rechaza al instante, pero si el puerto está ocupado por otra cosa que no
+// contesta, treinta segundos aquí retrasarían el arranque de todo el archivo.
+const hayClamav = await new ClamAvEscaner({
+  host: '127.0.0.1',
+  port: 3310,
+  timeoutMs: 3_000,
+}).disponible();
 
-  it.runIf(() => disponible)('responde al PING', async () => {
+if (!hayClamav) {
+  console.log('  (ClamAV no responde en 127.0.0.1:3310 — se omiten esas pruebas)');
+}
+
+describe.skipIf(!hayClamav)('ClamAV por TCP', () => {
+  it('responde al PING', async () => {
     expect(await escaner.disponible()).toBe(true);
   });
 
-  it.runIf(() => disponible)('informa de su versión de firmas', async () => {
+  it('informa de su versión de firmas', async () => {
     const version = await escaner.version();
     expect(version).toMatch(/ClamAV/);
   });
 
-  it.runIf(() => disponible)('da por limpio un PDF inocuo', async () => {
+  it('da por limpio un PDF inocuo', async () => {
     const pdf = Buffer.from('%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer\n%%EOF\n');
     const veredicto = await escaner.escanear(pdf);
     expect(veredicto.status).toBe('limpio');
   });
 
-  it.runIf(() => disponible)('detecta EICAR y nombra la amenaza', async () => {
+  it('detecta EICAR y nombra la amenaza', async () => {
     const veredicto = await escaner.escanear(Buffer.from(EICAR));
     expect(veredicto.status).toBe('infectado');
     expect(veredicto.status === 'infectado' && veredicto.detail).toMatch(/Eicar/i);
   });
 
-  it.runIf(() => disponible)('detecta EICAR con espacios al final', async () => {
+  it('detecta EICAR con espacios al final', async () => {
     // La especificación EICAR admite espacios de relleno hasta 128 bytes y
     // sigue siendo detectable. Rodearla de contenido arbitrario NO lo es —y
     // eso es correcto: la firma identifica el archivo de prueba completo, no
@@ -100,7 +115,7 @@ describe('ClamAV por TCP', () => {
     expect(veredicto.status).toBe('infectado');
   });
 
-  it.runIf(() => disponible)('analiza un archivo grande sin romperse', async () => {
+  it('analiza un archivo grande sin romperse', async () => {
     // Ejercita el troceado del protocolo INSTREAM: 300 kB obligan a varios
     // envíos de 64 kB con su cabecera de longitud cada uno.
     const grande = Buffer.alloc(300 * 1024, 0x41);
@@ -108,6 +123,15 @@ describe('ClamAV por TCP', () => {
     expect(veredicto.status).toBe('limpio');
   });
 
+});
+
+/**
+ * Fuera del bloque anterior a propósito: esta comprobación NO necesita un clamd
+ * vivo y es justamente la que no puede dejar de ejecutarse. Que un antivirus
+ * inalcanzable retenga el archivo en vez de aprobarlo es la propiedad de
+ * seguridad de la que depende todo lo demás.
+ */
+describe('ClamAV inalcanzable', () => {
   it('da error, no "limpio", si no hay clamd escuchando', async () => {
     // El modo de fallo importa: un antivirus inalcanzable debe retener el
     // archivo, nunca aprobarlo. Se apunta a un puerto donde no hay nada.

@@ -150,8 +150,40 @@ que reaparece. Las convenciones de SaniTi van en **este** archivo.
 
 `npm test` habla con Postgres **directamente**, suplantando JWT. Nunca ejercita
 el camino navegador→Supabase. Un fallo de CSP, de RPC desde cliente o de subida
-a Storage pasa los 104 tests y falla en producción. Abre la consola del
+a Storage pasa los 107 tests y falla en producción. Abre la consola del
 navegador.
+
+### 2.11 Escribir una prueba que se omite sola (y no se omite)
+
+`it.runIf(x)` y `describe.skipIf(x)` reciben un **valor**, no un predicado, y lo
+leen al **recolectar** las pruebas — antes de que se ejecute ningún `beforeAll`.
+Las dos mitades de esa frase son trampas distintas y este repositorio cayó en
+ambas a la vez:
+
+```ts
+// MAL, y de dos formas.
+let disponible = false;
+beforeAll(async () => { disponible = await escaner.disponible(); });
+it.runIf(() => disponible)('…', async () => { /* se ejecuta SIEMPRE */ });
+```
+
+Una función siempre es cierta, así que `runIf` nunca omitió nada; en el portátil
+pasaba porque el contenedor de ClamAV estaba levantado, y en CI —donde no lo
+está— fallaron seis pruebas. Quitar el `() =>` no arregla nada: la bandera se
+lee antes del `beforeAll` y valdría `false` siempre, con lo que las pruebas se
+omitirían **todas**, para siempre, en verde y sin que nadie lo notara.
+
+La forma correcta es sondear al cargar el módulo, con `await` de nivel superior,
+y decidir sobre un booleano ya resuelto:
+
+```ts
+const hayClamav = await escaner.disponible();
+describe.skipIf(!hayClamav)('ClamAV por TCP', () => { … });
+```
+
+Y lo más importante: **lo que no necesita el servicio no se omite**. La prueba
+de que un antivirus inalcanzable devuelve `error` y no `limpio` vive fuera de
+ese bloque, porque es justo la que tiene que correr donde no hay ClamAV.
 
 ---
 
@@ -279,7 +311,8 @@ docs/                  SECURITY.md, ARCHITECTURE.md y este archivo
 - Alertas de break-glass sin revisar.
 - Copias de seguridad verificadas y ensayo de restauración.
 - Portal del paciente.
-- Vista semanal: reprogramar arrastrando una cita a otro día.
+- Vista semanal: reprogramar arrastrando una cita a otro día (el formulario de
+  reprogramación sí existe, desde el menú de cada cita).
 
 ---
 
