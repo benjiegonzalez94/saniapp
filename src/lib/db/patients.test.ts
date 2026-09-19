@@ -72,12 +72,16 @@ async function alta(
 
   const [fila] = await sql<{ id: string; record_number: string }[]>`
     insert into public.patients
-      (id, tenant_id, given_name, family_name, national_id_enc, national_id_bidx, national_id_last4)
+      (id, tenant_id, given_name, family_name, national_id_enc, national_id_bidx, national_id_last4, key_version)
     values (
       ${id}, ${tenantId}, ${nombre}, ${apellido},
       ${cifrado?.national_id_enc ?? null},
       ${cifrado ? sql`decode(${cifrado.national_id_bidx.toString('hex')}, 'hex')` : null},
-      ${cifrado?.national_id_last4 ?? null}
+      ${cifrado?.national_id_last4 ?? null},
+      -- La 0018 exige que la versión acompañe al texto cifrado. Este helper se
+      -- deja fiel al alta real a propósito: si algún día vuelven a divergir,
+      -- el CHECK rompe aquí y no en producción.
+      ${cifrado?.key_version ?? null}
     )
     returning id, record_number
   `;
@@ -144,14 +148,39 @@ describe('documento de identidad cifrado', () => {
   it('se puede descifrar de vuelta con la clave y la fila correctas', async () => {
     const p = await alta(clinicaA.id, 'Gina', 'Siete', DOC_ROUNDTRIP);
 
-    const [fila] = await sql<{ enc: string }[]>`
-      select national_id_enc as enc from public.patients where id = ${p.id}`;
+    const [fila] = await sql<{ enc: string; kv: number }[]>`
+      select national_id_enc as enc, key_version as kv
+        from public.patients where id = ${p.id}`;
+
+    // La versión se LEE de la fila, no se supone. Antes esta prueba pasaba un
+    // `keyVersion: 1` a mano y por eso no delataba que la columna no existía:
+    // verificaba el cifrado dando por hecho justo el dato que faltaba.
+    expect(fila.kv).toBe(1);
 
     const descifrado = decryptField(
-      { ciphertext: fila.enc, keyVersion: 1 },
+      { ciphertext: fila.enc, keyVersion: fila.kv },
       { table: 'patients', column: 'national_id', rowId: p.id }
     );
     expect(descifrado).toBe(DOC_ROUNDTRIP);
+  });
+
+  it('la base no acepta una cédula cifrada sin su versión de clave', async () => {
+    // Sin versión, el valor es indescifrable en cuanto se rote la clave, y
+    // `needsRotation()` tampoco puede señalarlo para recifrarlo. Que lo impida
+    // la base y no el código es lo que hace que siga siendo cierto para
+    // cualquiera que escriba en la tabla, hoy o dentro de dos años.
+    await expect(
+      sql`
+        insert into public.patients (tenant_id, given_name, family_name, national_id_enc)
+        values (${clinicaA.id}, 'Sin', 'Version', 'dGV4dG8gY2lmcmFkbw==')`
+    ).rejects.toThrow(/patients_key_version_con_cifrado/);
+
+    // Y al revés: una versión suelta sin nada cifrado tampoco tiene sentido.
+    await expect(
+      sql`
+        insert into public.patients (tenant_id, given_name, family_name, key_version)
+        values (${clinicaA.id}, 'Sin', 'Cifrado', 1)`
+    ).rejects.toThrow(/patients_key_version_con_cifrado/);
   });
 
   it('no se descifra desde la fila de otro paciente', async () => {

@@ -185,6 +185,23 @@ Y lo más importante: **lo que no necesita el servicio no se omite**. La prueba
 de que un antivirus inalcanzable devuelve `error` y no `limpio` vive fuera de
 ese bloque, porque es justo la que tiene que correr donde no hay ClamAV.
 
+### 2.12 Importar `src/lib/security/crypto.ts` desde un script
+
+Ese módulo empieza con `import 'server-only'`, que **lanza una excepción nada
+más cargarse** fuera de un Server Component:
+
+    Error: This module cannot be imported from a Client Component module.
+
+La protección es deseable: impide que las claves de cifrado acaben en un bundle
+de navegador. Así que no se quita del módulo, se neutraliza donde hace falta.
+Vitest ya lo hacía con un alias en `vitest.config.mts`; los scripts usan
+`tsconfig.scripts.json`, que mapea `server-only` a un módulo vacío:
+
+    tsx --tsconfig tsconfig.scripts.json scripts/loquesea.mts
+
+Y en el import, **sin la extensión** `.ts`: tsx la acepta pero `npm run
+typecheck` usa el tsconfig principal y falla con TS5097.
+
 ---
 
 ## 3. Cómo levantar el entorno
@@ -308,7 +325,9 @@ docs/                  SECURITY.md, ARCHITECTURE.md y este archivo
 - SMS y correo sin proveedor: el worker imprime y **no** marca como enviado.
 - WhatsApp sin credenciales de Meta.
 - Rotación efectiva de claves de cifrado (esquema y código listos, falta el job).
-- Copias de seguridad verificadas y ensayo de restauración.
+- Copias de seguridad **automáticas**: el ensayo de restauración ya existe y
+  corre en CI (ver [`OPERACION.md`](./OPERACION.md)), pero lanzar la copia sigue
+  siendo manual y no hay aviso de que una copia NO se hizo.
 - **Portal del paciente**: es la pieza grande que falta. No es una pantalla más:
   introduce un tipo de usuario nuevo, con su propia autenticación, su propio
   conjunto de permisos y un modelo de consentimiento distinto del de la plantilla
@@ -331,4 +350,6 @@ docs/                  SECURITY.md, ARCHITECTURE.md y este archivo
   con sus modos de fallo. **Léelo antes de tocar RLS, cifrado o auditoría.**
 - [`docs/ARCHITECTURE.md`](./ARCHITECTURE.md) — modelo de datos, flujos y las
   alternativas que se evaluaron y descartaron.
+- [`docs/OPERACION.md`](./OPERACION.md) — copias de seguridad, ensayo de
+  restauración y el procedimiento para el día malo.
 - [`README.md`](../README.md) — puesta en marcha y comandos.

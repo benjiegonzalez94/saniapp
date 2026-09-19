@@ -271,6 +271,13 @@ export type NationalIdFields = {
   national_id_enc: string;
   national_id_bidx: Buffer;
   national_id_last4: string;
+  /**
+   * Con qué clave se cifró. Va aquí y no se descarta porque `decryptField()`
+   * la exige: el texto cifrado NO la lleva dentro. Sin guardarla, la cédula
+   * queda ilegible en cuanto se rote la clave, y `needsRotation()` tampoco
+   * puede señalar qué filas recifrar. La base lo impone desde la 0018.
+   */
+  key_version: number;
 };
 
 export function encryptNationalId(value: string, patientId: string): NationalIdFields {
@@ -279,7 +286,7 @@ export function encryptNationalId(value: string, patientId: string): NationalIdF
     throw new Error('El documento de identidad es demasiado corto');
   }
 
-  const { ciphertext } = encryptField(normalized, {
+  const { ciphertext, keyVersion } = encryptField(normalized, {
     table: 'patients',
     column: 'national_id',
     rowId: patientId,
@@ -290,6 +297,7 @@ export function encryptNationalId(value: string, patientId: string): NationalIdF
     national_id_bidx: blindIndex(normalized),
     // Los últimos 4 permiten cotejar identidad en mostrador sin descifrar nada.
     national_id_last4: normalized.slice(-4),
+    key_version: keyVersion,
   };
 }
 

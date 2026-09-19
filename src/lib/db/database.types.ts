@@ -1,5 +1,3 @@
-// GENERADO AUTOMÁTICAMENTE — no editar a mano. npm run db:types
-
 export type Json =
   | string
   | number
@@ -4259,6 +4257,7 @@ export type Database = {
           given_name: string
           id: string
           id_document: "cedula" | "pasaporte" | "ruc" | "sin_documento"
+          key_version: number | null
           merged_into: string | null
           national_id_bidx: string | null
           national_id_enc: string | null
@@ -4291,6 +4290,7 @@ export type Database = {
           given_name: string
           id?: string
           id_document?: "cedula" | "pasaporte" | "ruc" | "sin_documento"
+          key_version?: number | null
           merged_into?: string | null
           national_id_bidx?: string | null
           national_id_enc?: string | null
@@ -4323,6 +4323,7 @@ export type Database = {
           given_name?: string
           id?: string
           id_document?: "cedula" | "pasaporte" | "ruc" | "sin_documento"
+          key_version?: number | null
           merged_into?: string | null
           national_id_bidx?: string | null
           national_id_enc?: string | null

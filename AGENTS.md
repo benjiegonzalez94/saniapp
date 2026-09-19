@@ -62,6 +62,8 @@ npm run db:start     # PostgreSQL 17 + migraciones + datos de desarrollo
 npm run dev
 npm run verify       # check:sql + typecheck + lint + test + check:drift
 npm run db:types     # regenera los tipos tras CADA migración
+npm run backup       # copia de seguridad cifrada
+npm run backup:ensayo   # comprueba que esa copia se puede restaurar
 ```
 
 Mide el estado de `verify` **antes** de empezar: si ya estaba rojo, no lo has

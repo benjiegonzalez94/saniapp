@@ -1,0 +1,21 @@
+{
+  // Configuración para los scripts de `scripts/*.mts` que se ejecutan con tsx
+  // FUERA de Next (copias de seguridad, semilla cifrada, workers).
+  //
+  // Existe por una sola razón: `src/lib/security/crypto.ts` empieza con
+  // `import 'server-only'`, y ese paquete lanza una excepción nada más cargarse
+  // fuera de un Server Component. La protección es deseable —impide que las
+  // claves de cifrado acaben en un bundle de navegador— así que no se quita del
+  // módulo; se neutraliza sólo aquí, igual que hace vitest.config.mts con su
+  // propio alias.
+  //
+  // Se aplica con:  tsx --tsconfig tsconfig.scripts.json scripts/loquesea.mts
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./src/*"],
+      "server-only": ["./src/lib/testing/empty-module.ts"]
+    }
+  },
+  "include": ["scripts/**/*.mts", "src/**/*.ts"]
+}

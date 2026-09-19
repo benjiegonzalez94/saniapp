@@ -366,7 +366,9 @@ Esta fundación no incluye todavía:
   —y la pantalla de auditoría las lista destacadas—, pero nadie va a buscarlas:
   falta el correo o la notificación que le diga al responsable que hay una
   esperando.
-- Copias de seguridad verificadas y ensayo de restauración.
+- Copias de seguridad **automáticas y fuera del sitio**. El mecanismo existe y
+  el ensayo de restauración corre en CI, pero lanzarlo sigue siendo manual:
+  ver [`OPERACION.md`](./OPERACION.md).
 - Endurecimiento de `auth`: caducidad de sesión, exigir MFA por institución,
   bloqueo temporal de cuenta tras N fallos (hoy sólo hay límite de intentos).
 

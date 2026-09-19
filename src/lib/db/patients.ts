@@ -277,6 +277,7 @@ export async function crearPaciente(
   if (datos.nationalId?.trim()) {
     const cifrado = encryptNationalId(datos.nationalId, patientId);
     fila.national_id_enc = cifrado.national_id_enc;
+    fila.key_version = cifrado.key_version;
     // PostgREST espera bytea en formato hexadecimal escapado.
     fila.national_id_bidx = `\\x${cifrado.national_id_bidx.toString('hex')}`;
     fila.national_id_last4 = cifrado.national_id_last4;

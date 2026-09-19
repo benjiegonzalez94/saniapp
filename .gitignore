@@ -49,3 +49,8 @@ next-env.d.ts
 # generó (`npx graphify portable-check` lo confirma) y graph.json + cache suman
 # ~640 KB de artefacto regenerable con `npm run graph`.
 .graphify/
+
+# Copias de seguridad. Contienen datos clínicos; JAMÁS al repositorio.
+# El cifrado de la copia no es excusa: la clave vive en el mismo equipo.
+/copias/
+*.enc
