@@ -273,6 +273,8 @@ supabase/migrations/   FUENTE DE VERDAD del esquema. Numeradas, en orden.
   0014 medications     Vademécum y cruce de alergias por familia
   0015 document_scanning  Cola y veredictos del antivirus
   0016 appointment_reminders  Plan y despacho de recordatorios
+  0017 audit_chain_rpc   Verificación de integridad de bitácora y revisión break-glass
+  0018 patient_key_version  Versión de clave para cédula cifrada y soporte de rotación
   9999 verify_security ASERCIONES que abortan el despliegue
 
 src/

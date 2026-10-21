@@ -10,24 +10,34 @@ duplica aquí para que no haya dos versiones que se contradigan.
 
 ---
 
-## Ramas
+## Estrategia de Ramas (Git Flow)
 
-`main` está protegida: no se empuja directo, todo entra por pull request.
+El repositorio sigue una adaptación limpia de **Git Flow**:
+
+- **`main`**: Rama de producción, estable y protegida. Solo recibe fusiones de `release/*` o `hotfix/*`. Cada fusión a `main` se etiqueta con su versión (`v0.1.0`).
+- **`develop`**: Rama base para el trabajo activo e integración continua. Todo nuevo desarrollo parte de aquí.
+
+### Convención de ramas de trabajo
 
 ```
-feat/agenda-vista-semanal
-fix/receta-alergia-no-detectada
-docs/contribuir
+feature/agenda-vista-semanal
+bugfix/receta-alergia-no-detectada
+release/v0.2.0
+hotfix/cors-webhook-meta
+docs/contexto-agentes
 ```
 
-Prefijo, guion, descripción corta en español. Ramas de vida corta: cuanto más
-tiempo vive una rama, más caro sale el rebase —y con migraciones de por medio,
-el choque es seguro (ver abajo).
+1. **`feature/<nombre>`**: Para nuevas funcionalidades. Nacen desde `develop` y se integran mediante Pull Request hacia `develop`.
+2. **`bugfix/<nombre>`**: Corrección de errores en desarrollo. Nacen y se integran en `develop`.
+3. **`hotfix/<nombre>`**: Correcciones críticas urgentes para producción. Nacen directamente desde `main`, se etiquetan y se fusionan de vuelta tanto a `main` como a `develop`.
+4. **`release/<version>`**: Congelamiento y pruebas previas a un despliegue mayor. Nace de `develop` y se fusiona a `main` y `develop`.
 
-Antes de pedir revisión, ponte al día:
+Ramas de vida corta: cuanto más tiempo vive una rama, más caro sale el rebase —y con migraciones de por medio, el choque es seguro (ver abajo).
+
+Antes de pedir revisión, ponte al día rebasando sobre `develop`:
 
 ```bash
-git fetch origin && git rebase origin/main
+git fetch origin && git rebase origin/develop
 ```
 
 ---
