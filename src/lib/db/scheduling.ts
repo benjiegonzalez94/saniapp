@@ -173,7 +173,7 @@ export async function listarProveedores(tenantId: string): Promise<Proveedor[]> 
 
   const { data, error } = await supabase
     .from('memberships')
-    .select('profile:profiles!inner(id, full_name, specialty)')
+    .select('profile:profiles!memberships_profile_id_fkey!inner(id, full_name, specialty)')
     .eq('tenant_id', tenantId)
     .eq('status', 'active')
     .in('role', ['physician', 'nurse']);
