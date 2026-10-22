@@ -88,8 +88,9 @@ export async function crearCita(
     return { error: 'No se puede agendar en el pasado.', campo: 'startsAt' };
   }
 
+  let nuevaCitaId = '';
   try {
-    await agendarCita(
+    nuevaCitaId = await agendarCita(
       tenant.tenantId,
       {
         patientId: d.patientId,
@@ -112,9 +113,8 @@ export async function crearCita(
   }
 
   revalidatePath(`/i/${slug}/agenda`);
-  // Se vuelve al día de la cita recién creada, no al de hoy: quien agenda para
-  // el jueves quiere ver que quedó ahí.
-  redirect(`/i/${slug}/agenda?fecha=${d.startsAt.slice(0, 10)}`);
+  // Se vuelve al día de la cita recién creada con el id para acceso rápido al comprobante.
+  redirect(`/i/${slug}/agenda?fecha=${d.startsAt.slice(0, 10)}&citaCreada=${nuevaCitaId}`);
 }
 
 export async function moverCita(

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { CalendarPlus, ChevronLeft, ChevronRight, Clock, Settings2 } from 'lucide-react';
+import { CalendarPlus, CheckCircle2, ChevronLeft, ChevronRight, Clock, Printer, Settings2 } from 'lucide-react';
 
 import { can, requirePermissionBySlug } from '@/lib/auth/context';
 import {
@@ -54,10 +54,10 @@ export default async function PaginaAgenda({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ fecha?: string; medico?: string }>;
+  searchParams: Promise<{ fecha?: string; medico?: string; citaCreada?: string }>;
 }) {
   const { slug } = await params;
-  const { fecha, medico } = await searchParams;
+  const { fecha, medico, citaCreada } = await searchParams;
 
   const tenant = await requirePermissionBySlug(slug, 'appointments.read');
   const zona = tenant.timezone;
@@ -136,6 +136,24 @@ export default async function PaginaAgenda({
           )}
         </div>
       </div>
+
+      {citaCreada && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-(--radius-lg) border border-(--color-exito) bg-(--color-exito-suave) p-4 text-(--color-tinta)">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="size-5 shrink-0 text-(--color-exito)" aria-hidden="true" />
+            <p className="text-sm font-medium">
+              ¡Cita médica agendada correctamente!
+            </p>
+          </div>
+          <Link
+            href={`/i/${slug}/agenda/${citaCreada}/comprobante`}
+            className="inline-flex h-9 items-center gap-2 rounded-(--radius-md) bg-(--color-superficie) px-3.5 text-sm font-medium text-(--color-tinta) shadow-xs transition-colors hover:bg-(--color-superficie-2)"
+          >
+            <Printer className="size-4 text-(--color-tinta-2)" aria-hidden="true" />
+            Ver / Imprimir Comprobante
+          </Link>
+        </div>
+      )}
 
       {/* Navegación de fecha y filtro por médico */}
       <div className="flex flex-wrap items-center gap-2">

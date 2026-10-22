@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
-import { CalendarClock, Check, LogIn, MoreHorizontal, Stethoscope, UserX, X } from 'lucide-react';
+import { CalendarClock, Check, LogIn, MoreHorizontal, Printer, Stethoscope, UserX, X } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import type { AppointmentStatus } from '@/lib/db/types';
@@ -172,6 +172,16 @@ export function AccionesCita({
                 className="fixed inset-0 z-10 cursor-default"
               />
               <ul className="absolute top-9 right-0 z-20 min-w-44 overflow-hidden rounded-(--radius-md) border border-(--color-borde-fuerte) bg-(--color-superficie) py-1 shadow-(--shadow-flotante)">
+                <li>
+                  <Link
+                    href={`/i/${slug}/agenda/${citaId}/comprobante`}
+                    onClick={() => setAbierto(false)}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-(--color-tinta-2) transition-colors hover:bg-(--color-superficie-2)"
+                  >
+                    <Printer className="size-3.5" aria-hidden="true" />
+                    Comprobante / PDF
+                  </Link>
+                </li>
                 {puedeMover && (
                   <li>
                     <button

@@ -609,3 +609,120 @@ export async function crearBloqueo(
     metadata: { desde: datos.startsAt, hasta: datos.endsAt },
   });
 }
+
+export type ComprobanteCita = {
+  id: string;
+  startsAt: string;
+  endsAt: string;
+  status: AppointmentStatus;
+  kind: EncounterKind;
+  reason: string | null;
+  patient: {
+    id: string;
+    givenName: string;
+    familyName: string;
+    phone: string | null;
+    recordNumber: number;
+    birthDate: string | null;
+    nationalIdLast4: string | null;
+  };
+  provider: {
+    id: string;
+    fullName: string;
+    specialty: string | null;
+    licenseNumber: string | null;
+  };
+  location: {
+    name: string;
+    addressLine: string | null;
+    city: string | null;
+    phone: string | null;
+  } | null;
+};
+
+const CAMPOS_COMPROBANTE =
+  'id, starts_at, ends_at, status, kind, reason, patient:patients!appointments_patient_id_fkey(id, given_name, family_name, phone, record_number, birth_date, national_id_last4), provider:profiles!appointments_provider_id_fkey(id, full_name, specialty, license_number), location:locations(name, address_line, city, phone)' as const;
+
+/**
+ * Obtiene los datos completos de una cita para generar su comprobante impreso o PDF.
+ */
+export async function obtenerCita(
+  tenantId: string,
+  citaId: string
+): Promise<ComprobanteCita | null> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('appointments')
+    .select(CAMPOS_COMPROBANTE)
+    .eq('tenant_id', tenantId)
+    .eq('id', citaId)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) return null;
+
+  type FilaComprobante = {
+    id: string;
+    starts_at: string;
+    ends_at: string;
+    status: AppointmentStatus;
+    kind: EncounterKind;
+    reason: string | null;
+    patient: {
+      id: string;
+      given_name: string;
+      family_name: string;
+      phone: string | null;
+      record_number: number | null;
+      birth_date: string | null;
+      national_id_last4: string | null;
+    } | null;
+    provider: {
+      id: string;
+      full_name: string;
+      specialty: string | null;
+      license_number: string | null;
+    } | null;
+    location: {
+      name: string;
+      address_line: string | null;
+      city: string | null;
+      phone: string | null;
+    } | null;
+  };
+
+  const f = data as unknown as FilaComprobante;
+
+  return {
+    id: f.id,
+    startsAt: f.starts_at,
+    endsAt: f.ends_at,
+    status: f.status,
+    kind: f.kind,
+    reason: f.reason,
+    patient: {
+      id: f.patient?.id ?? '',
+      givenName: f.patient?.given_name ?? '—',
+      familyName: f.patient?.family_name ?? '',
+      phone: f.patient?.phone ?? null,
+      recordNumber: f.patient?.record_number ?? 0,
+      birthDate: f.patient?.birth_date ?? null,
+      nationalIdLast4: f.patient?.national_id_last4 ?? null,
+    },
+    provider: {
+      id: f.provider?.id ?? '',
+      fullName: f.provider?.full_name ?? 'Sin asignar',
+      specialty: f.provider?.specialty ?? null,
+      licenseNumber: f.provider?.license_number ?? null,
+    },
+    location: f.location
+      ? {
+          name: f.location.name,
+          addressLine: f.location.address_line,
+          city: f.location.city,
+          phone: f.location.phone,
+        }
+      : null,
+  };
+}
