@@ -54,3 +54,7 @@ next-env.d.ts
 # El cifrado de la copia no es excusa: la clave vive en el mismo equipo.
 /copias/
 *.enc
+
+# Configuración local de agentes y credenciales MCP
+/.agents/
+
